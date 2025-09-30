@@ -1,0 +1,47 @@
+{% extends 'lms/base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Профіль користувача</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <div class="bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 100px; height: 100px;">
+                                <span class="text-white fw-bold fs-2">{{ user.get_full_name|first|default:"U" }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <h5>{{ user.get_full_name|default:user.username }}</h5>
+                            <p><strong>Ім'я користувача:</strong> {{ user.username }}</p>
+                            <p><strong>Email:</strong> {{ user.email|default:"Не вказано" }}</p>
+
+                            {% if user_type == 'student' %}
+                            <p><strong>Роль:</strong> Студент</p>
+                            <p><strong>ID студента:</strong> {{ profile.student_id }}</p>
+                            <p><strong>Факультет:</strong> {{ profile.faculty.name }}</p>
+                            <p><strong>Дата вступу:</strong> {{ profile.enrollment_date }}</p>
+                            {% elif user_type == 'professor' %}
+                            <p><strong>Роль:</strong> Викладач</p>
+                            <p><strong>Кафедра:</strong> {{ profile.department.name }}</p>
+                            <p><strong>Факультет:</strong> {{ profile.department.faculty.name }}</p>
+                            <p><strong>Офіс:</strong> {{ profile.office }}</p>
+                            {% else %}
+                            <p><strong>Роль:</strong> Адміністратор</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <a href="{% url 'edit_profile' %}" class="btn btn-primary">Редагувати профіль</a>
+                        <a href="{% url 'home' %}" class="btn btn-secondary">На головну</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

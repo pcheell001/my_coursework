@@ -1,0 +1,30 @@
+{% extends 'lms/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4>Вхід до системи</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Ім'я користувача</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Пароль</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Увійти</button>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <p>Або <a href="/admin/login/">увійти через адміністративну панель</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

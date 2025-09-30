@@ -1,0 +1,20 @@
+{% extends 'lms/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 text-center">
+        <div class="card">
+            <div class="card-body py-5">
+                <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 3rem;"></i>
+                <h2 class="card-title mt-3">Доступ заборонено</h2>
+                <p class="card-text">Ви не маєте достатніх прав для перегляду цієї сторінки.</p>
+                <p class="text-muted">Будь ласка, зверніться до адміністратора системи для отримання додаткових прав.</p>
+                <div class="mt-4">
+                    <a href="{% url 'home' %}" class="btn btn-primary">На головну</a>
+                    <a href="{% url 'custom_logout' %}" class="btn btn-outline-secondary">Вийти</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'lms/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Розклад занять</h2>
+
+    {% for day, day_schedules in schedule_by_day.items %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>{{ day_schedules.0.get_day_of_week_display }}</h5>
+        </div>
+        <div class="card-body">
+            {% for schedule in day_schedules %}
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <h6 class="mb-0">{{ schedule.class_obj.course.name }}</h6>
+                    <small class="text-muted">{{ schedule.class_obj.course.code }}</small>
+                </div>
+                <div>
+                    <span class="badge bg-primary">{{ schedule.start_time }} - {{ schedule.end_time }}</span>
+                </div>
+                <div>
+                    <span class="text-muted">{{ schedule.classroom }}</span>
+                </div>
+            </div>
+            {% if not forloop.last %}<hr>{% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info">
+        Наразі немає запланованих занять.
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

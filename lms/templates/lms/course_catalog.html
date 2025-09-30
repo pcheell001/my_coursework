@@ -1,0 +1,112 @@
+{% extends 'lms/base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Каталог курсів</h2>
+    <div>
+        <button class="btn btn-outline-secondary" id="filterToggle">Фільтр</button>
+    </div>
+</div>
+
+<div class="card mb-4 d-none" id="filterCard">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="faculty" class="form-label">Факультет</label>
+                <select class="form-select" id="faculty" name="faculty">
+                    <option value="">Всі факультети</option>
+                    <!-- Тут буде динамічно заповнений список факультетів -->
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="department" class="form-label">Кафедра</label>
+                <select class="form-select" id="department" name="department">
+                    <option value="">Всі кафедри</option>
+                    <!-- Тут буде динамічно заповнений список кафедр -->
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="credits" class="form-label">Кредити</label>
+                <select class="form-select" id="credits" name="credits">
+                    <option value="">Будь-які</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5+</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">Застосувати</button>
+                <a href="{% url 'course_catalog' %}" class="btn btn-secondary">Скинути</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    {% for course in courses %}
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">{{ course.name }}</h5>
+                <h6 class="card-subtitle mb-2 text-muted">{{ course.code }} | {{ course.credits }} кредитів</h6>
+                <p class="card-text">{{ course.description|truncatewords:30 }}</p>
+                <p class="card-text">
+                    <small class="text-muted">
+                        Факультет: {{ course.department.faculty.name }}<br>
+                        Кафедра: {{ course.department.name }}
+                    </small>
+                </p>
+            </div>
+            <div class="card-footer">
+                <a href="#" class="btn btn-sm btn-outline-primary">Детальніше</a>
+                {% if user.is_authenticated %}
+                <button class="btn btn-sm btn-success float-end">Записатися</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">Курси не знайдено.</div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if courses.has_other_pages %}
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        {% if courses.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ courses.previous_page_number }}" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+        {% endif %}
+
+        {% for i in courses.paginator.page_range %}
+        <li class="page-item {% if courses.number == i %}active{% endif %}">
+            <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+        </li>
+        {% endfor %}
+
+        {% if courses.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ courses.next_page_number }}" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<script>
+    // Простий JavaScript для перемикання видимості фільтрів
+    document.getElementById('filterToggle').addEventListener('click', function() {
+        const filterCard = document.getElementById('filterCard');
+        filterCard.classList.toggle('d-none');
+    });
+</script>
+{% endblock %}

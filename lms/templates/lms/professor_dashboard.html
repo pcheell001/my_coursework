@@ -1,0 +1,61 @@
+{% extends 'lms/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Моя інформація</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>ПІБ:</strong> {{ professor.user.get_full_name }}</p>
+                <p><strong>Кафедра:</strong> {{ professor.department.name }}</p>
+                <p><strong>Факультет:</strong> {{ professor.department.faculty.name }}</p>
+                <p><strong>Офіс:</strong> {{ professor.office }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Мої курси</h5>
+            </div>
+            <div class="card-body">
+                {% if classes %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                        <tr>
+                            <th>Курс</th>
+                            <th>Код</th>
+                            <th>Семестр</th>
+                            <th>Розклад</th>
+                            <th>Аудиторія</th>
+                            <th>Дії</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for class in classes %}
+                        <tr>
+                            <td>{{ class.course.name }}</td>
+                            <td>{{ class.course.code }}</td>
+                            <td>{{ class.semester }}</td>
+                            <td>{{ class.schedule }}</td>
+                            <td>{{ class.classroom }}</td>
+                            <td>
+                                <a href="{% url 'class_detail' class.id %}" class="btn btn-sm btn-info">Деталі</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p>У вас немає активних курсів.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

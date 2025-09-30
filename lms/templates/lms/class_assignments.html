@@ -1,0 +1,53 @@
+{% extends 'lms/base.html' %}
+{% load lms_filters %}
+
+{% block content %}
+<h2>Завдання для {{ class_obj.course.name }} ({{ class_obj.course.code }})</h2>
+
+{% if is_professor %}
+<a href="{% url 'create_assignment' class_id=class_obj.id %}" class="btn btn-primary mb-3">Створити нове завдання</a>
+{% endif %}
+
+{% if assignments %}
+<table class="table table-striped">
+    <thead>
+    <tr>
+        <th>Назва</th>
+        <th>Тип</th>
+        <th>Термін здачі</th>
+        <th>Макс. бал</th>
+        <th>Дії</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for assignment in assignments %}
+    <tr>
+        <td>{{ assignment.title }}</td>
+        <td>{{ assignment.get_assignment_type_display }}</td>
+        <td>{{ assignment.due_date|date:"d.m.Y H:i" }}</td>
+        <td>{{ assignment.max_points }}</td>
+        <td>
+            {% if is_student %}
+            {% with submission=student_submissions|dict_get:assignment.id %}
+            {% if submission %}
+            <span class="text-success">Здано</span>
+            {% if submission.grade %}
+            <br>Оцінка: {{ submission.grade }} / {{ assignment.max_points }}
+            {% endif %}
+            <a href="{% url 'submit_assignment' assignment_id=assignment.id %}" class="btn btn-sm btn-warning">Редагувати</a>
+            {% else %}
+            <a href="{% url 'submit_assignment' assignment_id=assignment.id %}" class="btn btn-sm btn-primary">Здати роботу</a>
+            {% endif %}
+            {% endwith %}
+            {% elif is_professor %}
+            <a href="{% url 'view_submissions' assignment_id=assignment.id %}" class="btn btn-sm btn-info">Переглянути здачі</a>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Поки що немає завдань для цього курсу.</p>
+{% endif %}
+{% endblock %}

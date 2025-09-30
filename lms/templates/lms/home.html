@@ -1,0 +1,51 @@
+{% extends 'lms/base.html' %}
+
+{% block content %}
+<div class="jumbotron bg-light p-5 rounded">
+    <h1 class="display-4">Ласкаво просимо до системи управління навчанням!</h1>
+    <p class="lead">Ця система допоможе вам керувати навчальним процесом університету.</p>
+    <hr class="my-4">
+    <p>Оберіть потрібний розділ у меню або увійдіть до системи для отримання доступу до повного функціоналу.</p>
+    {% if not user.is_authenticated %}
+    <a class="btn btn-primary btn-lg" href="{% url 'custom_login' %}" role="button">Увійти до системи</a>
+    {% endif %}
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Для студентів</h5>
+                <p class="card-text">Перегляд курсів, реєстрація на заняття, перегляд оцінок та розкладу.</p>
+                {% if user.is_authenticated and user.student %}
+                <a href="{% url 'student_dashboard' %}" class="btn btn-outline-primary">Студентський портал</a>
+                {% else %}
+                <a href="{% url 'custom_login' %}" class="btn btn-outline-primary">Студентський портал</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Для викладачів</h5>
+                <p class="card-text">Керування курсами, ведення відомостей, оцінювання студентів.</p>
+                {% if user.is_authenticated and user.professor %}
+                <a href="{% url 'professor_dashboard' %}" class="btn btn-outline-primary">Портал викладача</a>
+                {% else %}
+                <a href="{% url 'custom_login' %}" class="btn btn-outline-primary">Портал викладача</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Каталог курсів</h5>
+                <p class="card-text">Перегляд усіх доступних курсів університету з детальною інформацією.</p>
+                <a href="{% url 'course_catalog' %}" class="btn btn-outline-primary">Переглянути курси</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

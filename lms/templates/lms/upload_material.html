@@ -1,0 +1,24 @@
+{% extends 'lms/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Завантаження матеріалу для {{ class_obj.course.name }}</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="id_title" class="form-label">Назва матеріалу</label>
+            {{ form.title }}
+        </div>
+        <div class="mb-3">
+            <label for="id_description" class="form-label">Опис</label>
+            {{ form.description }}
+        </div>
+        <div class="mb-3">
+            <label for="id_file" class="form-label">Файл</label>
+            {{ form.file }}
+        </div>
+        <button type="submit" class="btn btn-primary">Завантажити</button>
+        <a href="{% url 'class_detail' class_obj.id %}" class="btn btn-secondary">Скасувати</a>
+    </form>
+</div>
+{% endblock %}
