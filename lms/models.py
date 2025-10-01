@@ -162,6 +162,7 @@ class Assignment(models.Model):
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, verbose_name="Заняття")
     due_date = models.DateTimeField(verbose_name="Термін здачі")
     max_points = models.IntegerField(default=100, verbose_name="Максимальний бал")
+    assignment_file = models.FileField(upload_to='assignments/', blank=True, null=True, verbose_name="Файл завдання")  # ДОБАВЛЕНО
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

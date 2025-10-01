@@ -44,20 +44,22 @@ class CourseMaterialForm(forms.ModelForm):
 class AssignmentForm(forms.ModelForm):
     class Meta:
         model = Assignment
-        fields = ['title', 'description', 'assignment_type', 'due_date', 'max_points']
+        fields = ['title', 'assignment_type', 'description', 'due_date', 'max_points', 'assignment_file']
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'assignment_type': forms.Select(attrs={'class': 'form-control'}),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Введіть назву завдання'}),
+            'assignment_type': forms.Select(attrs={'class': 'form-select'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Введіть опис завдання', 'rows': 4}),
             'due_date': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'max_points': forms.NumberInput(attrs={'class': 'form-control'}),
+            'max_points': forms.NumberInput(attrs={'class': 'form-control', 'min': 0, 'step': 0.5}),
+            'assignment_file': forms.FileInput(attrs={'class': 'form-control'}),
         }
         labels = {
             'title': 'Назва завдання',
-            'description': 'Опис завдання',
             'assignment_type': 'Тип завдання',
+            'description': 'Опис',
             'due_date': 'Термін здачі',
-            'max_points': 'Максимальний бал'
+            'max_points': 'Максимальний бал',
+            'assignment_file': 'Файл завдання (необов\'язково)',
         }
 
 

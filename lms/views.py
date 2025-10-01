@@ -1,220 +1,193 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth import login, authenticate, logout
-from django.contrib.auth.forms import AuthenticationForm
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib import messages
-from django.http import HttpResponseRedirect, Http404
-from django.urls import reverse
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.contrib.auth import logout
+from django.http import HttpResponseForbidden
 from django.utils import timezone
-from django.db.models import Q
-from django.core.paginator import Paginator
-from .models import *
-from .forms import UserEditForm, CourseMaterialForm, AssignmentForm, StudentSubmissionForm, GradeSubmissionForm
-
-
-def access_denied(request):
-    return render(request, 'lms/access_denied.html')
-
-
-def is_professor(user):
-    return hasattr(user, 'professor')
-
-
-def is_student(user):
-    return hasattr(user, 'student')
+from django.db.models import Avg, Count, Q
+from .models import (
+    Student, Professor, Class, Enrollment, CourseMaterial,
+    Assignment, StudentSubmission, Course, Faculty, Department
+)
+from .forms import (
+    UserEditForm, CourseMaterialForm, AssignmentForm,
+    StudentSubmissionForm, GradeSubmissionForm
+)
 
 
 def home(request):
-    return render(request, 'lms/home.html')
+    """Главная страница"""
+    context = {}
 
+    if request.user.is_authenticated:
+        try:
+            if hasattr(request.user, 'student'):
+                student = request.user.student
+                enrolled_classes = Enrollment.objects.filter(student=student).select_related('class_enrolled')
+                context['enrolled_courses_count'] = enrolled_classes.count()
 
-def custom_login(request):
-    if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                login(request, user)
-                try:
-                    Student.objects.get(user=user)
-                    return redirect('student_dashboard')
-                except Student.DoesNotExist:
-                    pass
+                # Получаем активные задания
+                assignments_count = Assignment.objects.filter(
+                    class_obj__in=[enrollment.class_enrolled for enrollment in enrolled_classes]
+                ).count()
+                context['assignments_count'] = assignments_count
 
-                try:
-                    Professor.objects.get(user=user)
-                    return redirect('professor_dashboard')
-                except Professor.DoesNotExist:
-                    pass
+            elif hasattr(request.user, 'professor'):
+                professor = request.user.professor
+                professor_classes = Class.objects.filter(professor=professor)
+                context['enrolled_courses_count'] = professor_classes.count()
 
-                return redirect('/admin/')
-    else:
-        form = AuthenticationForm()
+                # Получаем задания, созданные преподавателем
+                assignments_count = Assignment.objects.filter(
+                    class_obj__in=professor_classes
+                ).count()
+                context['assignments_count'] = assignments_count
 
-    return render(request, 'lms/login.html', {'form': form})
+        except (Student.DoesNotExist, Professor.DoesNotExist):
+            pass
+
+    return render(request, 'lms/home.html', context)
 
 
 def custom_logout(request):
+    """Кастомный выход из системы"""
     logout(request)
     return redirect('home')
 
 
 @login_required
-@user_passes_test(is_student, login_url='access_denied')
+def edit_profile(request):
+    """Редактирование профиля пользователя"""
+    if request.method == 'POST':
+        form = UserEditForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            return redirect('home')
+    else:
+        form = UserEditForm(instance=request.user)
+
+    return render(request, 'lms/edit_profile.html', {'form': form})
+
+
+@login_required
 def student_dashboard(request):
-    student = get_object_or_404(Student, user=request.user)
-    enrollments = Enrollment.objects.filter(student=student).select_related(
-        'class_enrolled', 'class_enrolled__course', 'class_enrolled__professor'
-    )
+    """Панель управления студента"""
+    try:
+        student = request.user.student
+    except Student.DoesNotExist:
+        return HttpResponseForbidden("Доступ запрещен")
 
-    current_semester = "Весна 2024"
+    # Получаем зачисления студента
+    enrollments = Enrollment.objects.filter(student=student).select_related('class_enrolled')
+    enrolled_classes = [enrollment.class_enrolled for enrollment in enrollments]
 
-    current_enrollments = enrollments.filter(class_enrolled__semester=current_semester)
-    completed_enrollments = enrollments.exclude(class_enrolled__semester=current_semester)
+    # Получаем задания для классов студента
+    assignments = Assignment.objects.filter(class_obj__in=enrolled_classes)
 
-    total_credits = 0
-    weighted_sum = 0
+    # Получаем отправленные задания
+    submitted_assignments = StudentSubmission.objects.filter(
+        student=student,
+        assignment__in=assignments
+    ).values_list('assignment', flat=True)
 
-    grade_points = {
-        'A': 4.0, 'B': 3.0, 'C': 2.0, 'D': 1.0, 'F': 0.0,
-        'A-': 3.7, 'B+': 3.3, 'B-': 2.7, 'C+': 2.3, 'C-': 1.7,
-        'D+': 1.3, 'D-': 0.7
+    context = {
+        'student': student,
+        'enrolled_courses': enrolled_classes,
+        'recent_assignments': assignments.order_by('-due_date')[:5],
+        'submitted_assignments': submitted_assignments,
+        'pending_assignments': assignments.exclude(id__in=submitted_assignments),
     }
 
-    for enrollment in enrollments:
-        if enrollment.grade and enrollment.grade in grade_points:
-            course_credits = enrollment.class_enrolled.course.credits
-            total_credits += course_credits
-            weighted_sum += grade_points[enrollment.grade] * course_credits
-
-    gpa = weighted_sum / total_credits if total_credits > 0 else 0
-
-    return render(request, 'lms/student_dashboard.html', {
-        'student': student,
-        'current_enrollments': current_enrollments,
-        'completed_enrollments': completed_enrollments,
-        'gpa': round(gpa, 2)
-    })
+    return render(request, 'lms/student_dashboard.html', context)
 
 
 @login_required
-@user_passes_test(is_professor, login_url='access_denied')
 def professor_dashboard(request):
-    professor = get_object_or_404(Professor, user=request.user)
-    classes = Class.objects.filter(professor=professor)
-    return render(request, 'lms/professor_dashboard.html', {
+    """Панель управления преподавателя"""
+    try:
+        professor = request.user.professor
+    except Professor.DoesNotExist:
+        return HttpResponseForbidden("Доступ запрещен")
+
+    # Получаем классы преподавателя
+    professor_classes = Class.objects.filter(professor=professor)
+
+    # Получаем задания
+    assignments = Assignment.objects.filter(class_obj__in=professor_classes)
+
+    # Получаем отправленные работы
+    submissions = StudentSubmission.objects.filter(assignment__in=assignments)
+
+    context = {
         'professor': professor,
-        'classes': classes
-    })
+        'classes': professor_classes,
+        'assignments_count': assignments.count(),
+        'submissions_count': submissions.count(),
+        'pending_submissions_count': submissions.filter(grade__isnull=True).count(),
+    }
+
+    return render(request, 'lms/professor_dashboard.html', context)
 
 
 @login_required
-def course_catalog(request):
-    courses = Course.objects.select_related('department', 'department__faculty').all()
+def class_list(request):
+    """Список всех классов"""
+    if hasattr(request.user, 'student'):
+        enrollments = Enrollment.objects.filter(student=request.user.student)
+        classes = [enrollment.class_enrolled for enrollment in enrollments]
+    elif hasattr(request.user, 'professor'):
+        classes = Class.objects.filter(professor=request.user.professor)
+    else:
+        classes = Class.objects.all()
 
-    faculty_filter = request.GET.get('faculty')
-    if faculty_filter:
-        courses = courses.filter(department__faculty_id=faculty_filter)
-
-    department_filter = request.GET.get('department')
-    if department_filter:
-        courses = courses.filter(department_id=department_filter)
-
-    search_query = request.GET.get('search')
-    if search_query:
-        courses = courses.filter(
-            Q(name__icontains=search_query) |
-            Q(code__icontains=search_query)
-        )
-
-    paginator = Paginator(courses, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    faculties = Faculty.objects.all()
-    departments = Department.objects.all()
-
-    return render(request, 'lms/course_catalog.html', {
-        'courses': page_obj,
-        'faculties': faculties,
-        'departments': departments
-    })
+    return render(request, 'lms/class_list.html', {'classes': classes})
 
 
 @login_required
 def class_detail(request, class_id):
+    """Детальная информация о классе"""
     class_obj = get_object_or_404(Class, id=class_id)
-    enrollments = Enrollment.objects.filter(class_enrolled=class_obj)
 
-    is_enrolled = False
-    is_professor = False
-    is_student = False
-
+    # Проверка доступа
     if hasattr(request.user, 'student'):
-        student = request.user.student
-        is_student = True
-        is_enrolled = Enrollment.objects.filter(student=student, class_enrolled=class_obj).exists()
+        if not Enrollment.objects.filter(student=request.user.student, class_enrolled=class_obj).exists():
+            return HttpResponseForbidden("Доступ запрещен")
 
-    if hasattr(request.user, 'professor'):
-        professor = request.user.professor
-        is_professor = (class_obj.professor == professor)
+    context = {
+        'class_obj': class_obj,
+        'materials': CourseMaterial.objects.filter(class_obj=class_obj),
+        'assignments': Assignment.objects.filter(class_obj=class_obj),
+    }
+
+    return render(request, 'lms/class_detail.html', context)
+
+
+@login_required
+def class_materials(request, class_id):
+    """Материалы класса"""
+    class_obj = get_object_or_404(Class, id=class_id)
+
+    # Проверка доступа
+    if hasattr(request.user, 'student'):
+        if not Enrollment.objects.filter(student=request.user.student, class_enrolled=class_obj).exists():
+            return HttpResponseForbidden("Доступ запрещен")
 
     materials = CourseMaterial.objects.filter(class_obj=class_obj)
 
-    return render(request, 'lms/class_detail.html', {
-        'class': class_obj,
-        'enrollments': enrollments,
-        'materials': materials,
-        'is_enrolled': is_enrolled,
-        'is_professor': is_professor,
-        'is_student': is_student
+    return render(request, 'lms/class_materials.html', {
+        'class_obj': class_obj,
+        'materials': materials
     })
 
 
 @login_required
-@user_passes_test(is_student, login_url='access_denied')
-def enroll_course(request, class_id):
-    student = get_object_or_404(Student, user=request.user)
+def upload_course_material(request, class_id):
+    """Загрузка материала курса"""
     class_obj = get_object_or_404(Class, id=class_id)
 
-    if Enrollment.objects.filter(student=student, class_enrolled=class_obj).exists():
-        messages.warning(request, "Ви вже записані на цей курс.")
-    else:
-        Enrollment.objects.create(student=student, class_enrolled=class_obj)
-        messages.success(request, f"Ви успішно записались на курс {class_obj.course.name}.")
-
-    return HttpResponseRedirect(reverse('class_detail', args=[class_id]))
-
-
-@login_required
-@user_passes_test(is_professor, login_url='access_denied')
-def professor_grades(request, class_id):
-    professor = get_object_or_404(Professor, user=request.user)
-    class_obj = get_object_or_404(Class, id=class_id, professor=professor)
-    enrollments = Enrollment.objects.filter(class_enrolled=class_obj)
-
-    if request.method == 'POST':
-        for enrollment in enrollments:
-            grade_field = f'grade_{enrollment.id}'
-            if grade_field in request.POST:
-                enrollment.grade = request.POST[grade_field]
-                enrollment.save()
-        messages.success(request, 'Оцінки успішно оновлено.')
-        return redirect('professor_grades', class_id=class_id)
-
-    return render(request, 'lms/professor_grades.html', {
-        'class_obj': class_obj,
-        'enrollments': enrollments,
-    })
-
-
-@login_required
-@user_passes_test(is_professor, login_url='access_denied')
-def upload_course_material(request, class_id):
-    professor = get_object_or_404(Professor, user=request.user)
-    class_obj = get_object_or_404(Class, id=class_id, professor=professor)
+    # Только преподаватель может загружать материалы
+    if not hasattr(request.user, 'professor') or class_obj.professor != request.user.professor:
+        return HttpResponseForbidden("Доступ запрещен")
 
     if request.method == 'POST':
         form = CourseMaterialForm(request.POST, request.FILES)
@@ -222,239 +195,322 @@ def upload_course_material(request, class_id):
             material = form.save(commit=False)
             material.class_obj = class_obj
             material.save()
-            messages.success(request, 'Матеріал успішно завантажено.')
-            return redirect('class_detail', class_id=class_id)
+            return redirect('class_materials', class_id=class_id)
     else:
         form = CourseMaterialForm()
 
     return render(request, 'lms/upload_material.html', {
         'form': form,
-        'class_obj': class_obj,
+        'class_obj': class_obj
     })
-
-
-@login_required
-def delete_course_material(request, material_id):
-    try:
-        professor = Professor.objects.get(user=request.user)
-        material = get_object_or_404(CourseMaterial, id=material_id)
-
-        if material.class_obj.professor != professor:
-            messages.error(request, "Ви не маєте прав для видалення цього матеріалу.")
-            return redirect('class_detail', class_id=material.class_obj.id)
-
-        class_id = material.class_obj.id
-        material.delete()
-        messages.success(request, "Матеріал успішно видалено.")
-        return redirect('class_detail', class_id=class_id)
-
-    except Professor.DoesNotExist:
-        messages.error(request, "Доступ заборонено. Тільки викладачі можуть видаляти матеріали.")
-        return redirect('home')
-
-
-@login_required
-def schedule(request):
-    try:
-        if hasattr(request.user, 'student'):
-            student = request.user.student
-            enrollments = Enrollment.objects.filter(student=student)
-            classes = [enrollment.class_enrolled for enrollment in enrollments]
-            schedules = Schedule.objects.filter(class_obj__in=classes).order_by('day_of_week', 'start_time')
-            user_type = 'student'
-        elif hasattr(request.user, 'professor'):
-            professor = request.user.professor
-            classes = Class.objects.filter(professor=professor)
-            schedules = Schedule.objects.filter(class_obj__in=classes).order_by('day_of_week', 'start_time')
-            user_type = 'professor'
-        else:
-            return render(request, 'lms/access_denied.html')
-
-        schedule_by_day = {}
-        DAYS_OF_WEEK_DISPLAY = {
-            'MON': 'Понеділок',
-            'TUE': 'Вівторок',
-            'WED': 'Середа',
-            'THU': 'Четвер',
-            'FRI': 'П\'ятниця',
-            'SAT': 'Субота'
-        }
-
-        for schedule in schedules:
-            day_display = DAYS_OF_WEEK_DISPLAY.get(schedule.day_of_week, schedule.day_of_week)
-            if day_display not in schedule_by_day:
-                schedule_by_day[day_display] = []
-            schedule_by_day[day_display].append(schedule)
-
-        return render(request, 'lms/schedule.html', {
-            'schedule_by_day': schedule_by_day,
-            'user_type': user_type
-        })
-    except Exception as e:
-        return render(request, 'lms/access_denied.html')
-
-
-@login_required
-def profile(request):
-    user = request.user
-    context = {'user': user}
-
-    if hasattr(user, 'student'):
-        context['profile'] = user.student
-        context['user_type'] = 'student'
-    elif hasattr(user, 'professor'):
-        context['profile'] = user.professor
-        context['user_type'] = 'professor'
-    else:
-        context['user_type'] = 'other'
-
-    return render(request, 'lms/profile.html', context)
-
-
-@login_required
-def edit_profile(request):
-    user = request.user
-
-    if request.method == 'POST':
-        form = UserEditForm(request.POST, instance=user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Профіль успішно оновлено.')
-            return redirect('profile')
-    else:
-        form = UserEditForm(instance=user)
-
-    return render(request, 'lms/edit_profile.html', {'form': form})
-
-
-@login_required
-def create_assignment(request, class_id):
-    try:
-        professor = Professor.objects.get(user=request.user)
-        class_obj = get_object_or_404(Class, id=class_id, professor=professor)
-
-        if request.method == 'POST':
-            form = AssignmentForm(request.POST)
-            if form.is_valid():
-                assignment = form.save(commit=False)
-                assignment.class_obj = class_obj
-                assignment.save()
-                messages.success(request, 'Завдання успішно створено.')
-                return redirect('class_assignments', class_id=class_id)
-        else:
-            form = AssignmentForm()
-
-        return render(request, 'lms/create_assignment.html', {
-            'form': form,
-            'class_obj': class_obj,
-        })
-    except Professor.DoesNotExist:
-        return render(request, 'lms/access_denied.html')
 
 
 @login_required
 def class_assignments(request, class_id):
+    """Список заданий класса"""
     class_obj = get_object_or_404(Class, id=class_id)
+
+    # Проверка доступа
+    if hasattr(request.user, 'student'):
+        if not Enrollment.objects.filter(student=request.user.student, class_enrolled=class_obj).exists():
+            return HttpResponseForbidden("Доступ запрещен")
+
     assignments = Assignment.objects.filter(class_obj=class_obj)
 
-    is_professor = False
-    try:
-        professor = Professor.objects.get(user=request.user)
-        is_professor = (class_obj.professor == professor)
-    except Professor.DoesNotExist:
-        pass
-
-    is_student = False
-    student_submissions = {}
-    try:
-        student = Student.objects.get(user=request.user)
-        is_student = True
-        submissions = StudentSubmission.objects.filter(
-            student=student,
-            assignment__class_obj=class_obj
-        ).select_related('assignment')
-        student_submissions = {submission.assignment.id: submission for submission in submissions}
-    except Student.DoesNotExist:
-        pass
+    # Для студентов получаем отправленные задания
+    submitted_assignments = []
+    if hasattr(request.user, 'student'):
+        submitted_assignments = StudentSubmission.objects.filter(
+            student=request.user.student,
+            assignment__in=assignments
+        ).values_list('assignment_id', flat=True)
 
     return render(request, 'lms/class_assignments.html', {
         'class_obj': class_obj,
         'assignments': assignments,
-        'is_professor': is_professor,
-        'is_student': is_student,
-        'student_submissions': student_submissions,
+        'submitted_assignments': submitted_assignments
     })
 
 
 @login_required
-def submit_assignment(request, assignment_id):
-    try:
-        student = Student.objects.get(user=request.user)
-        assignment = get_object_or_404(Assignment, id=assignment_id)
+def create_assignment(request, class_id):
+    """Создание нового задания"""
+    class_obj = get_object_or_404(Class, id=class_id)
 
-        if not Enrollment.objects.filter(student=student, class_enrolled=assignment.class_obj).exists():
-            messages.error(request, "Ви не записані на цей курс.")
-            return redirect('class_assignments', class_id=assignment.class_obj.id)
+    # Только преподаватель может создавать задания
+    if not hasattr(request.user, 'professor') or class_obj.professor != request.user.professor:
+        return HttpResponseForbidden("Доступ запрещен")
 
-        existing_submission = StudentSubmission.objects.filter(student=student, assignment=assignment).first()
+    if request.method == 'POST':
+        form = AssignmentForm(request.POST, request.FILES)
+        if form.is_valid():
+            assignment = form.save(commit=False)
+            assignment.class_obj = class_obj
+            assignment.save()
+            return redirect('class_assignments', class_id=class_id)
+    else:
+        form = AssignmentForm()
 
-        if request.method == 'POST':
-            form = StudentSubmissionForm(request.POST, request.FILES, instance=existing_submission)
-            if form.is_valid():
-                submission = form.save(commit=False)
-                submission.student = student
-                submission.assignment = assignment
-                submission.save()
-                messages.success(request, 'Роботу успішно здано.')
-                return redirect('class_assignments', class_id=assignment.class_obj.id)
-        else:
-            form = StudentSubmissionForm(instance=existing_submission)
-
-        return render(request, 'lms/submit_assignment.html', {
-            'form': form,
-            'assignment': assignment,
-            'existing_submission': existing_submission,
-        })
-    except Student.DoesNotExist:
-        messages.error(request, "Доступ заборонено. Тільки студенти можуть здавати роботи.")
-        return redirect('home')
+    return render(request, 'lms/create_assignment.html', {
+        'form': form,
+        'class_obj': class_obj
+    })
 
 
 @login_required
-def view_submissions(request, assignment_id):
-    try:
-        professor = Professor.objects.get(user=request.user)
-        assignment = get_object_or_404(Assignment, id=assignment_id, class_obj__professor=professor)
-        submissions = StudentSubmission.objects.filter(assignment=assignment).select_related('student', 'student__user')
+def assignment_detail(request, assignment_id):
+    """Детальная информация о задании"""
+    assignment = get_object_or_404(Assignment, id=assignment_id)
 
-        return render(request, 'lms/view_submissions.html', {
-            'assignment': assignment,
-            'submissions': submissions,
-        })
-    except Professor.DoesNotExist:
-        return render(request, 'lms/access_denied.html')
+    # Проверка доступа
+    if hasattr(request.user, 'student'):
+        if not Enrollment.objects.filter(
+                student=request.user.student,
+                class_enrolled=assignment.class_obj
+        ).exists():
+            return HttpResponseForbidden("Доступ запрещен")
+
+    # Для студентов получаем их отправку
+    student_submission = None
+    if hasattr(request.user, 'student'):
+        try:
+            student_submission = StudentSubmission.objects.get(
+                student=request.user.student,
+                assignment=assignment
+            )
+        except StudentSubmission.DoesNotExist:
+            pass
+
+    context = {
+        'assignment': assignment,
+        'student_submission': student_submission,
+    }
+
+    return render(request, 'lms/assignment_detail.html', context)
+
+
+@login_required
+def submit_assignment(request, assignment_id):
+    """Отправка задания студентом"""
+    assignment = get_object_or_404(Assignment, id=assignment_id)
+
+    # Только студент может отправлять задания
+    try:
+        student = request.user.student
+    except Student.DoesNotExist:
+        return HttpResponseForbidden("Доступ запрещен")
+
+    # Проверка, что студент записан на курс
+    if not Enrollment.objects.filter(
+            student=student,
+            class_enrolled=assignment.class_obj
+    ).exists():
+        return HttpResponseForbidden("Доступ запрещен")
+
+    # Проверка, что задание уже не отправлено
+    try:
+        existing_submission = StudentSubmission.objects.get(
+            student=student,
+            assignment=assignment
+        )
+        # Если отправка уже существует, перенаправляем на детали
+        return redirect('assignment_detail', assignment_id=assignment_id)
+    except StudentSubmission.DoesNotExist:
+        pass
+
+    if request.method == 'POST':
+        form = StudentSubmissionForm(request.POST, request.FILES)
+        if form.is_valid():
+            submission = form.save(commit=False)
+            submission.student = student
+            submission.assignment = assignment
+            submission.save()
+            return redirect('assignment_detail', assignment_id=assignment_id)
+    else:
+        form = StudentSubmissionForm()
+
+    return render(request, 'lms/submit_assignment.html', {
+        'form': form,
+        'assignment': assignment
+    })
+
+
+@login_required
+def assignment_submissions(request, assignment_id):
+    """Список отправленных работ для задания"""
+    assignment = get_object_or_404(Assignment, id=assignment_id)
+
+    # Только преподаватель курса может просматривать отправки
+    if not hasattr(request.user, 'professor') or assignment.class_obj.professor != request.user.professor:
+        return HttpResponseForbidden("Доступ запрещен")
+
+    submissions = StudentSubmission.objects.filter(assignment=assignment).select_related('student')
+
+    return render(request, 'lms/assignment_submissions.html', {
+        'assignment': assignment,
+        'submissions': submissions
+    })
 
 
 @login_required
 def grade_submission(request, submission_id):
+    """Оценка отправленной работы"""
+    submission = get_object_or_404(StudentSubmission, id=submission_id)
+
+    # Только преподаватель курса может оценивать работы
+    if not hasattr(request.user, 'professor') or submission.assignment.class_obj.professor != request.user.professor:
+        return HttpResponseForbidden("Доступ запрещен")
+
+    if request.method == 'POST':
+        form = GradeSubmissionForm(request.POST, instance=submission)
+        if form.is_valid():
+            graded_submission = form.save(commit=False)
+            graded_submission.graded_at = timezone.now()
+            graded_submission.save()
+            return redirect('assignment_submissions', assignment_id=submission.assignment.id)
+    else:
+        form = GradeSubmissionForm(instance=submission)
+
+    return render(request, 'lms/grade_submission.html', {
+        'form': form,
+        'submission': submission
+    })
+
+
+@login_required
+def student_courses(request):
+    """Курсы студента"""
     try:
-        professor = Professor.objects.get(user=request.user)
-        submission = get_object_or_404(StudentSubmission, id=submission_id, assignment__class_obj__professor=professor)
+        student = request.user.student
+    except Student.DoesNotExist:
+        return HttpResponseForbidden("Доступ запрещен")
 
-        if request.method == 'POST':
-            form = GradeSubmissionForm(request.POST, instance=submission)
-            if form.is_valid():
-                submission = form.save(commit=False)
-                submission.graded_at = timezone.now()
-                submission.save()
-                messages.success(request, 'Оцінку успішно виставлено.')
-                return redirect('view_submissions', assignment_id=submission.assignment.id)
-        else:
-            form = GradeSubmissionForm(instance=submission)
+    enrollments = Enrollment.objects.filter(student=student).select_related('class_enrolled')
 
-        return render(request, 'lms/grade_submission.html', {
-            'form': form,
+    return render(request, 'lms/student_courses.html', {
+        'enrollments': enrollments
+    })
+
+
+@login_required
+def student_assignments(request):
+    """Задания студента"""
+    try:
+        student = request.user.student
+    except Student.DoesNotExist:
+        return HttpResponseForbidden("Доступ запрещен")
+
+    # Получаем классы студента
+    enrollments = Enrollment.objects.filter(student=student)
+    class_ids = [enrollment.class_enrolled.id for enrollment in enrollments]
+
+    # Получаем задания для этих классов
+    assignments = Assignment.objects.filter(class_obj_id__in=class_ids).select_related('class_obj__course')
+
+    # Получаем отправленные задания и создаем словарь для быстрого доступа
+    submitted_assignments = StudentSubmission.objects.filter(
+        student=student,
+        assignment__in=assignments
+    ).select_related('assignment')
+
+    # Создаем словарь для быстрого доступа к отправкам по ID задания
+    submission_dict = {}
+    for submission in submitted_assignments:
+        submission_dict[submission.assignment_id] = submission
+
+    # Создаем список данных для отображения
+    assignment_data = []
+    for assignment in assignments:
+        submission = submission_dict.get(assignment.id)
+        assignment_data.append({
+            'assignment': assignment,
             'submission': submission,
+            'is_submitted': submission is not None,
+            'is_graded': submission and submission.grade is not None,
+            'grade_display': f"{submission.grade}/{assignment.max_points}" if submission and submission.grade else None,
+            'percentage': (submission.grade / assignment.max_points * 100) if submission and submission.grade else None,
         })
-    except Professor.DoesNotExist:
-        return render(request, 'lms/access_denied.html')
+
+    # Статистика
+    total_assignments = assignments.count()
+    submitted_count = len([a for a in assignment_data if a['is_submitted']])
+    graded_count = len([a for a in assignment_data if a['is_graded']])
+    pending_count = total_assignments - submitted_count
+
+    context = {
+        'assignment_data': assignment_data,
+        'total_assignments': total_assignments,
+        'submitted_count': submitted_count,
+        'graded_count': graded_count,
+        'pending_count': pending_count,
+        'completion_rate': (submitted_count / total_assignments * 100) if total_assignments > 0 else 0,
+    }
+
+    return render(request, 'lms/student_assignments.html', context)
+
+
+@login_required
+def student_grades(request):
+    """Оценки студента"""
+    try:
+        student = request.user.student
+    except Student.DoesNotExist:
+        return HttpResponseForbidden("Доступ запрещен")
+
+    submissions = StudentSubmission.objects.filter(student=student).select_related('assignment__class_obj__course')
+
+    # Рассчитываем статистику
+    total_submissions = submissions.count()
+    graded_submissions = submissions.exclude(grade__isnull=True)
+
+    if graded_submissions.exists():
+        average_grade = graded_submissions.aggregate(Avg('grade'))['grade__avg']
+        # Рассчитываем процент успешных работ (оценка >= 60%)
+        successful_submissions = graded_submissions.filter(
+            grade__gte=models.F('assignment__max_points') * 0.6
+        ).count()
+        success_rate = (successful_submissions / total_submissions * 100) if total_submissions > 0 else 0
+    else:
+        average_grade = 0
+        success_rate = 0
+
+    pending_grades = submissions.filter(grade__isnull=True).count()
+
+    # Рассчитываем процент для каждого submission
+    graded_submissions_list = []
+    for submission in submissions:
+        if submission.grade and submission.assignment.max_points:
+            percentage = (submission.grade / submission.assignment.max_points) * 100
+        else:
+            percentage = None
+
+        graded_submissions_list.append({
+            'submission': submission,
+            'percentage': percentage,
+            'grade_class': get_grade_class(percentage) if percentage else 'secondary'
+        })
+
+    context = {
+        'submissions': graded_submissions_list,
+        'total_submissions': total_submissions,
+        'average_grade': round(average_grade, 1) if average_grade else 0,
+        'success_rate': round(success_rate, 1) if success_rate else 0,
+        'pending_grades': pending_grades,
+        'graded_count': graded_submissions.count(),
+    }
+
+    return render(request, 'lms/student_grades.html', context)
+
+
+def get_grade_class(percentage):
+    """Возвращает CSS класс для оценки на основе процента"""
+    if percentage >= 90:
+        return 'success'
+    elif percentage >= 80:
+        return 'primary'
+    elif percentage >= 70:
+        return 'info'
+    elif percentage >= 60:
+        return 'warning'
+    else:
+        return 'danger'

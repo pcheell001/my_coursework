@@ -1,0 +1,146 @@
+{% extends 'lms/base.html' %}
+
+{% block title %}Моя успішність{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3">
+            <div class="sidebar">
+                <h5 class="mb-4"><i class="bi bi-person-circle"></i> Меню студента</h5>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'student_dashboard' %}">
+                            <i class="bi bi-speedometer2"></i> Огляд
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'student_courses' %}">
+                            <i class="bi bi-journals"></i> Мої курси
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'student_assignments' %}">
+                            <i class="bi bi-clipboard-check"></i> Завдання
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'student_grades' %}">
+                            <i class="bi bi-graph-up"></i> Успішність
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="bi bi-graph-up"></i> Моя успішність</h1>
+            </div>
+
+            {% if submissions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Курс</th>
+                                <th>Завдання</th>
+                                <th>Тип</th>
+                                <th>Дата здачі</th>
+                                <th>Оцінка</th>
+                                <th>Відсоток</th>
+                                <th>Відгук викладача</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for submission in submissions %}
+                            <tr>
+                                <td>{{ submission.assignment.class_obj.course.name }}</td>
+                                <td>{{ submission.assignment.title }}</td>
+                                <td>
+                                    <span class="badge {% if submission.assignment.assignment_type == 'LAB' %}bg-primary{% elif submission.assignment.assignment_type == 'HW' %}bg-warning{% elif submission.assignment.assignment_type == 'PROJECT' %}bg-success{% else %}bg-info{% endif %}">
+                                        {{ submission.assignment.get_assignment_type_display }}
+                                    </span>
+                                </td>
+                                <td>{{ submission.submission_date|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    {% if submission.grade %}
+                                        <span class="badge {% if submission.get_grade_percentage >= 90 %}bg-success{% elif submission.get_grade_percentage >= 70 %}bg-primary{% elif submission.get_grade_percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ submission.grade }}/{{ submission.assignment.max_points }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Очікує оцінки</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if submission.grade %}
+                                        <span class="badge bg-info">{{ submission.get_grade_percentage|floatformat:1 }}%</span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if submission.teacher_feedback %}
+                                        <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="{{ submission.teacher_feedback }}">
+                                            <i class="bi bi-chat-text"></i> Переглянути
+                                        </button>
+                                    {% else %}
+                                        <span class="text-muted">Немає відгуку</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Статистика -->
+                <div class="row mt-4">
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <i class="bi bi-check-circle"></i>
+                            <h3>{{ total_submissions }}</h3>
+                            <p>Всього здано</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <i class="bi bi-star"></i>
+                            <h3>{{ average_grade|default:"0" }}</h3>
+                            <p>Середній бал</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <i class="bi bi-percent"></i>
+                            <h3>{{ success_rate|default:"0" }}%</h3>
+                            <p>Успішність</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <i class="bi bi-clock-history"></i>
+                            <h3>{{ pending_grades }}</h3>
+                            <p>Очікують оцінки</p>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> У вас ще немає оцінок.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Активация всплывающих подсказок
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+</script>
+{% endblock %}

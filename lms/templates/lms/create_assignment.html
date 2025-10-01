@@ -1,0 +1,115 @@
+{% extends 'lms/base.html' %}
+
+{% block title %}Створити завдання{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">Створити нове завдання</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <strong>Виправте помилки нижче:</strong>
+                            <ul>
+                                {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                <li>{{ field }}: {{ error }}</li>
+                                {% endfor %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">Назва завдання:</label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                            <div class="text-danger">{{ form.title.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.assignment_type.id_for_label }}" class="form-label">Тип завдання:</label>
+                            {{ form.assignment_type }}
+                            {% if form.assignment_type.errors %}
+                            <div class="text-danger">{{ form.assignment_type.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">Опис:</label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                            <div class="text-danger">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.due_date.id_for_label }}" class="form-label">Термін здачі:</label>
+                            {{ form.due_date }}
+                            {% if form.due_date.errors %}
+                            <div class="text-danger">{{ form.due_date.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.max_points.id_for_label }}" class="form-label">Максимальний бал:</label>
+                            {{ form.max_points }}
+                            {% if form.max_points.errors %}
+                            <div class="text-danger">{{ form.max_points.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.assignment_file.id_for_label }}" class="form-label">Файл завдання (необов'язково):</label>
+                            {{ form.assignment_file }}
+                            {% if form.assignment_file.errors %}
+                            <div class="text-danger">{{ form.assignment_file.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'class_assignments' class_id=class_obj.id %}" class="btn btn-secondary">
+                                Скасувати
+                            </a>
+                            <button type="submit" class="btn btn-primary">Створити завдання</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .form-label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    textarea.form-control {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .alert ul {
+        margin-bottom: 0;
+        padding-left: 20px;
+    }
+</style>
+{% endblock %}

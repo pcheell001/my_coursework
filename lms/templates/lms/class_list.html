@@ -1,0 +1,42 @@
+{% extends 'lms/base.html' %}
+
+{% block title %}Мої класи{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1><i class="bi bi-journals"></i> Мої класи</h1>
+    
+    <div class="row mt-4">
+        {% for class in classes %}
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">{{ class.course.name }}</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Код курсу:</strong> {{ class.course.code }}</p>
+                    <p><strong>Викладач:</strong> {{ class.professor.user.get_full_name }}</p>
+                    <p><strong>Семестр:</strong> {{ class.semester }}</p>
+                    <p><strong>Аудиторія:</strong> {{ class.classroom }}</p>
+                    
+                    <div class="mt-3">
+                        <a href="{% url 'class_detail' class.id %}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-eye"></i> Деталі
+                        </a>
+                        <a href="{% url 'class_assignments' class.id %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-clipboard-check"></i> Завдання
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Ви ще не записані на жоден клас.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

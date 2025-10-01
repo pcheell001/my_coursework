@@ -1,28 +1,71 @@
 {% extends 'lms/base.html' %}
 
+{% block title %}Увійти - Університетська система{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h4>Вхід до системи</h4>
-            </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Ім'я користувача</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow">
+                <div class="card-header text-center bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-box-arrow-in-right"></i> Вхід до системи</h4>
+                </div>
+                <div class="card-body p-4">
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Невірне ім'я користувача або пароль.
                     </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Пароль</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                    {% endif %}
+
+                    {% if next %}
+                    {% if user.is_authenticated %}
+                    <div class="alert alert-warning">
+                        Ваш акаунт не має доступу до цієї сторінки.
                     </div>
-                    <button type="submit" class="btn btn-primary">Увійти</button>
-                </form>
-            </div>
-            <div class="card-footer text-center">
-                <p>Або <a href="/admin/login/">увійти через адміністративну панель</a></p>
+                    {% else %}
+                    <div class="alert alert-info">
+                        Будь ласка, увійдіть щоб побачити цю сторінку.
+                    </div>
+                    {% endif %}
+                    {% endif %}
+
+                    <form method="post" action="{% url 'login' %}">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="id_username" class="form-label">
+                                <i class="bi bi-person"></i> Ім'я користувача:
+                            </label>
+                            <input type="text" name="username" class="form-control form-control-lg"
+                                   id="id_username" required autofocus>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_password" class="form-label">
+                                <i class="bi bi-lock"></i> Пароль:
+                            </label>
+                            <input type="password" name="password" class="form-control form-control-lg"
+                                   id="id_password" required>
+                        </div>
+
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-box-arrow-in-right"></i> Увійти
+                            </button>
+                        </div>
+
+                        <input type="hidden" name="next" value="{{ next }}">
+                    </form>
+
+                    <div class="text-center">
+                        <small class="text-muted">
+                            Демо доступ:<br>
+                            <strong>Викладач:</strong> professor1 / pass123<br>
+                            <strong>Студент:</strong> student1 / pass123
+                        </small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

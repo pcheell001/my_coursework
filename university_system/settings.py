@@ -126,11 +126,11 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Додайте ці налаштування в кінець файлу
 
-# Перенаправлення після успішного входу
-LOGIN_REDIRECT_URL = '/admin/'
+# Настройки аутентификации
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'  # после входа перенаправлять на главную
+LOGOUT_REDIRECT_URL = '/'  # после выхода перенаправлять на главную
 
-# Перенаправлення після виходу
-LOGOUT_REDIRECT_URL = '/'
-
-# URL для входу
-LOGIN_URL = '/admin/login/'
+# Настройки сессии (опционально, но рекомендуется)
+SESSION_COOKIE_AGE = 1209600  # 2 недели в секундах
+SESSION_SAVE_EVERY_REQUEST = True  # обновление времени сессии при каждом запросе

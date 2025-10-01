@@ -1,0 +1,85 @@
+{% extends 'lms/base.html' %}
+
+{% block title %}Мої курси{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3">
+            <div class="sidebar">
+                <h5 class="mb-4"><i class="bi bi-person-circle"></i> Меню студента</h5>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'student_dashboard' %}">
+                            <i class="bi bi-speedometer2"></i> Огляд
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'student_courses' %}">
+                            <i class="bi bi-journals"></i> Мої курси
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'student_assignments' %}">
+                            <i class="bi bi-clipboard-check"></i> Завдання
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'student_grades' %}">
+                            <i class="bi bi-graph-up"></i> Успішність
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="bi bi-journals"></i> Мої курси</h1>
+            </div>
+
+            {% if enrollments %}
+                <div class="row">
+                    {% for enrollment in enrollments %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">{{ enrollment.class_enrolled.course.name }}</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">
+                                    <strong>Код курсу:</strong> {{ enrollment.class_enrolled.course.code }}<br>
+                                    <strong>Викладач:</strong> {{ enrollment.class_enrolled.professor.user.get_full_name }}<br>
+                                    <strong>Семестр:</strong> {{ enrollment.class_enrolled.semester }}<br>
+                                    <strong>Аудиторія:</strong> {{ enrollment.class_enrolled.classroom }}<br>
+                                    <strong>Розклад:</strong> {{ enrollment.class_enrolled.schedule }}
+                                </p>
+                                {% if enrollment.grade %}
+                                    <span class="badge bg-success">Оцінка: {{ enrollment.grade }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Оцінка очікується</span>
+                                {% endif %}
+                            </div>
+                            <div class="card-footer">
+                                <a href="{% url 'class_detail' enrollment.class_enrolled.id %}" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-eye"></i> Деталі курсу
+                                </a>
+                                <a href="{% url 'class_assignments' enrollment.class_enrolled.id %}" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-clipboard-check"></i> Завдання
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Ви ще не записані на жоден курс.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

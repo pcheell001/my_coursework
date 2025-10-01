@@ -1,51 +1,120 @@
 {% extends 'lms/base.html' %}
 
+{% block title %}Головна - Університетська система{% endblock %}
+
 {% block content %}
-<div class="jumbotron bg-light p-5 rounded">
-    <h1 class="display-4">Ласкаво просимо до системи управління навчанням!</h1>
-    <p class="lead">Ця система допоможе вам керувати навчальним процесом університету.</p>
-    <hr class="my-4">
-    <p>Оберіть потрібний розділ у меню або увійдіть до системи для отримання доступу до повного функціоналу.</p>
-    {% if not user.is_authenticated %}
-    <a class="btn btn-primary btn-lg" href="{% url 'custom_login' %}" role="button">Увійти до системи</a>
-    {% endif %}
+<!-- Hero Section -->
+<div class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-4 fw-bold mb-4">Ласкаво просимо до Університетської системи</h1>
+        <p class="lead mb-4">Сучасна платформа для ефективного управління навчальним процесом</p>
+        {% if not user.is_authenticated %}
+        <a href="{% url 'login' %}" class="btn btn-light btn-lg">Почати роботу</a>
+        {% endif %}
+    </div>
 </div>
 
-<div class="row mt-5">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Для студентів</h5>
-                <p class="card-text">Перегляд курсів, реєстрація на заняття, перегляд оцінок та розкладу.</p>
-                {% if user.is_authenticated and user.student %}
-                <a href="{% url 'student_dashboard' %}" class="btn btn-outline-primary">Студентський портал</a>
-                {% else %}
-                <a href="{% url 'custom_login' %}" class="btn btn-outline-primary">Студентський портал</a>
-                {% endif %}
+<div class="container">
+    {% if user.is_authenticated %}
+    <!-- Welcome Section for Authenticated Users -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <h2 class="card-title">Вітаємо, {{ user.get_full_name|default:user.username }}!</h2>
+                    <p class="card-text lead">Раді бачити вас у системі</p>
+                    {% if user.is_staff %}
+                    <a href="{% url 'professor_dashboard' %}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-speedometer2"></i> Перейти до панелі викладача
+                    </a>
+                    {% else %}
+                    <a href="{% url 'student_dashboard' %}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-speedometer2"></i> Перейти до панелі студента
+                    </a>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Для викладачів</h5>
-                <p class="card-text">Керування курсами, ведення відомостей, оцінювання студентів.</p>
-                {% if user.is_authenticated and user.professor %}
-                <a href="{% url 'professor_dashboard' %}" class="btn btn-outline-primary">Портал викладача</a>
-                {% else %}
-                <a href="{% url 'custom_login' %}" class="btn btn-outline-primary">Портал викладача</a>
-                {% endif %}
+    {% endif %}
+
+    <!-- Features Section -->
+    <div class="row mb-5">
+        <div class="col-12 text-center mb-4">
+            <h2>Можливості системи</h2>
+            <p class="lead">Все необхідне для ефективного навчання та викладання</p>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-journal-text display-4 text-primary mb-3"></i>
+                    <h4>Управління курсами</h4>
+                    <p>Створюйте та керуйте навчальними курсами, розподіляйте матеріали та завдання</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-clipboard-check display-4 text-success mb-3"></i>
+                    <h4>Завдання та оцінювання</h4>
+                    <p>Призначайте завдання, отримуйте роботи студентів та виставляйте оцінки</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-calendar-event display-4 text-warning mb-3"></i>
+                    <h4>Розклад занять</h4>
+                    <p>Плануйте розклад та відстежуйте навчальний процес у зручному форматі</p>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Каталог курсів</h5>
-                <p class="card-text">Перегляд усіх доступних курсів університету з детальною інформацією.</p>
-                <a href="{% url 'course_catalog' %}" class="btn btn-outline-primary">Переглянути курси</a>
+
+    <!-- Statistics Section -->
+    {% if user.is_authenticated %}
+    <div class="row">
+        <div class="col-12 text-center mb-4">
+            <h2>Статистика</h2>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <i class="bi bi-journals"></i>
+                <h3>{{ enrolled_courses_count|default:"0" }}</h3>
+                <p>Моїх курсів</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <i class="bi bi-clipboard-data"></i>
+                <h3>{{ assignments_count|default:"0" }}</h3>
+                <p>Активних завдань</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <i class="bi bi-clock-history"></i>
+                <h3>{{ pending_count|default:"0" }}</h3>
+                <p>Очікують перевірки</p>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <i class="bi bi-check-circle"></i>
+                <h3>{{ completed_count|default:"0" }}</h3>
+                <p>Завершених робіт</p>
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
