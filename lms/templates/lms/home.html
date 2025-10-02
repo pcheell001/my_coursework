@@ -35,6 +35,18 @@
                     <a href="{% url 'professor_dashboard' %}" class="btn btn-primary btn-lg">
                         <i class="bi bi-speedometer2"></i> Перейти до панелі викладача
                     </a>
+                    {% elif user.is_staff or user.is_superuser %}
+                    <!-- Приветствие для администратора -->
+                    <h2 class="card-title">Вітаємо, Адміністратор {{ user.get_full_name|default:user.username }}!</h2>
+                    <p class="card-text lead">Ви увійшли як адміністратор системи</p>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <a href="{% url 'admin:index' %}" class="btn btn-danger btn-lg">
+                            <i class="bi bi-gear"></i> Панель адміністрування
+                        </a>
+                        <a href="{% url 'class_list' %}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-journals"></i> Всі курси
+                        </a>
+                    </div>
                     {% else %}
                     <!-- Общее приветствие для других пользователей -->
                     <h2 class="card-title">Вітаємо, {{ user.get_full_name|default:user.username }}!</h2>

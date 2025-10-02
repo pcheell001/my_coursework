@@ -119,68 +119,42 @@
                 </div>
             </div>
 
-            <!-- Детальні оцінки за завданнями -->
-            <div class="card">
+            <!-- Оцінки за курсами -->
+            <div class="card mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> Детальні оцінки за завданнями</h5>
+                    <h5 class="mb-0"><i class="bi bi-journals"></i> Оцінки за курсами</h5>
                 </div>
                 <div class="card-body">
-                    {% if submissions %}
+                    {% if course_grades %}
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
                             <tr>
                                 <th>Курс</th>
-                                <th>Завдання</th>
-                                <th>Макс. бал</th>
-                                <th>Оцінка</th>
-                                <th>Відсоток</th>
+                                <th>Фінальна оцінка</th>
                                 <th>Статус</th>
-                                <th>Дата здачі</th>
-                                <th>Відгук</th>
                             </tr>
                             </thead>
                             <tbody>
-                            {% for item in submissions %}
+                            {% for course_grade in course_grades %}
                             <tr>
-                                <td>{{ item.submission.assignment.class_obj.course.name }}</td>
-                                <td>{{ item.submission.assignment.title }}</td>
-                                <td>{{ item.submission.assignment.max_points }}</td>
+                                <td>{{ course_grade.course.name }}</td>
                                 <td>
-                                    {% if item.submission.grade %}
-                                    <strong>{{ item.submission.grade }}</strong>
+                                    {% if course_grade.final_grade != "Н/Д" %}
+                                    <span class="badge bg-{{ course_grade.grade_class }} fs-6">
+                                        {{ course_grade.final_grade }}
+                                    </span>
+                                    <small class="text-muted ms-2">
+                                        ({{ course_grade.percentage|floatformat:0 }}%)
+                                    </small>
                                     {% else %}
-                                    <span class="text-muted">-</span>
+                                    <span class="text-muted">Не оцінено</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if item.percentage %}
-                                    <span class="badge bg-{{ item.grade_class }}">
-                                                    {{ item.percentage|floatformat:1 }}%
-                                                </span>
-                                    {% else %}
-                                    <span class="text-muted">-</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if item.submission.grade %}
-                                    <span class="badge bg-success">Оцінено</span>
-                                    {% else %}
-                                    <span class="badge bg-warning">Очікує</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ item.submission.submission_date|date:"d.m.Y H:i" }}</td>
-                                <td>
-                                    {% if item.submission.teacher_feedback %}
-                                    <button type="button" class="btn btn-sm btn-outline-info"
-                                            data-bs-toggle="popover"
-                                            title="Відгук викладача"
-                                            data-bs-content="{{ item.submission.teacher_feedback }}">
-                                        <i class="bi bi-chat-text"></i>
-                                    </button>
-                                    {% else %}
-                                    <span class="text-muted">-</span>
-                                    {% endif %}
+                                <span class="badge bg-{{ course_grade.status_class }}">
+                                    {{ course_grade.status }}
+                                </span>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -188,16 +162,10 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> У вас поки що немає зданих робіт.
-                    </div>
+                    <p class="text-muted">Поки що немає оцінок за курсами.</p>
                     {% endif %}
                 </div>
             </div>
-        </div>
-    </div>
-</div>
-
 <script>
     // Активація popover для відгуків викладача
     document.addEventListener('DOMContentLoaded', function() {

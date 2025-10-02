@@ -18,7 +18,7 @@ from .forms import (
 
 
 def home(request):
-    """Главная страница"""
+    """Головна сторінка"""
     context = {}
 
     if request.user.is_authenticated:
@@ -50,6 +50,14 @@ def home(request):
                     assignment__class_obj__in=professor_classes
                 ).count()
                 context['submissions_count'] = submissions_count
+
+            # Додаємо перевірку для адміністраторів
+            elif request.user.is_staff or request.user.is_superuser:
+                # Адмін бачить загальну статистику
+                context['enrolled_courses_count'] = Class.objects.count()
+                context['assignments_count'] = Assignment.objects.count()
+                context['submissions_count'] = StudentSubmission.objects.count()
+                context['is_admin'] = True
 
         except (Student.DoesNotExist, Professor.DoesNotExist):
             pass
@@ -159,35 +167,46 @@ def professor_grades(request):
         for enrollment in enrollments:
             student = enrollment.student
 
-            # Отримуємо завдання та роботи студента
+            # Перевіряємо, чи є фінальна оцінка
+            if enrollment.grade:
+                final_grade = enrollment.grade
+                final_grade_class = get_grade_class(convert_grade_to_percentage(final_grade))
+                average_grade = None  # Не показуємо середній бал, якщо є фінальна оцінка
+            else:
+                # Розраховуємо на основі завдань
+                assignments = Assignment.objects.filter(class_obj=course_class)
+                submissions = StudentSubmission.objects.filter(
+                    student=student,
+                    assignment__in=assignments
+                )
+
+                graded_submissions = submissions.exclude(grade__isnull=True)
+                if graded_submissions.exists():
+                    average_grade = graded_submissions.aggregate(Avg('grade'))['grade__avg']
+                    max_points_sum = sum(sub.assignment.max_points for sub in graded_submissions)
+                    achieved_points = sum(sub.grade for sub in graded_submissions)
+
+                    if max_points_sum > 0:
+                        percentage = (achieved_points / max_points_sum) * 100
+                        final_grade = calculate_final_grade(percentage)
+                        final_grade_class = get_grade_class(percentage)
+                    else:
+                        final_grade = "Н/Д"
+                        final_grade_class = "secondary"
+                else:
+                    average_grade = None
+                    final_grade = "Н/Д"
+                    final_grade_class = "secondary"
+
+            # Статистика
             assignments = Assignment.objects.filter(class_obj=course_class)
             submissions = StudentSubmission.objects.filter(
                 student=student,
                 assignment__in=assignments
             )
-
-            # Статистика
             submitted_count = submissions.count()
             total_assignments = assignments.count()
             completion_percentage = (submitted_count / total_assignments * 100) if total_assignments > 0 else 0
-
-            graded_submissions = submissions.exclude(grade__isnull=True)
-            if graded_submissions.exists():
-                average_grade = graded_submissions.aggregate(Avg('grade'))['grade__avg']
-                max_points_sum = sum(sub.assignment.max_points for sub in graded_submissions)
-                achieved_points = sum(sub.grade for sub in graded_submissions)
-
-                if max_points_sum > 0:
-                    percentage = (achieved_points / max_points_sum) * 100
-                    final_grade = calculate_final_grade(percentage)
-                    final_grade_class = get_grade_class(percentage)
-                else:
-                    final_grade = "Н/Д"
-                    final_grade_class = "secondary"
-            else:
-                average_grade = None
-                final_grade = "Н/Д"
-                final_grade_class = "secondary"
 
             students_data.append({
                 'student': student,
@@ -196,7 +215,8 @@ def professor_grades(request):
                 'completion_percentage': completion_percentage,
                 'average_grade': average_grade,
                 'final_grade': final_grade,
-                'final_grade_class': final_grade_class
+                'final_grade_class': final_grade_class,
+                'enrollment': enrollment  # Додаємо enrollment для перевірки фінальної оцінки
             })
 
         course_data.append({
@@ -233,11 +253,15 @@ def student_course_grades(request, course_id, student_id):
         assignment__in=assignments
     ).select_related('assignment')
 
+    # Получаем финальную оценку из Enrollment
+    enrollment = get_object_or_404(Enrollment, student=student, class_enrolled=course_class)
+
     context = {
         'course': course,
         'student': student,
         'assignments': assignments,
         'submissions': submissions,
+        'enrollment': enrollment,
     }
 
     return render(request, 'lms/student_course_grades.html', context)
@@ -260,7 +284,7 @@ def set_final_grade(request):
             # Проверяем, что преподаватель ведет этот курс
             course_class = get_object_or_404(Class, course=course, professor=professor)
 
-            # Здесь можно сохранить финальную оценку в модель Enrollment
+            # Сохраняем финальную оценку в модель Enrollment
             enrollment = get_object_or_404(Enrollment, student=student, class_enrolled=course_class)
             enrollment.grade = final_grade
             enrollment.save()
@@ -665,37 +689,43 @@ def calculate_course_grades(student):
     for enrollment in enrollments:
         course = enrollment.class_enrolled.course
 
-        # Отримуємо всі завдання для цього курсу
-        assignments = Assignment.objects.filter(class_obj__course=course)
+        # Перевіряємо, чи є фінальна оцінка в Enrollment
+        if enrollment.grade:
+            # Якщо є фінальна оцінка, використовуємо її
+            final_grade = enrollment.grade
+            percentage = convert_grade_to_percentage(final_grade)
+        else:
+            # Інакше розраховуємо на основі завдань
+            # Отримуємо всі завдання для цього курсу
+            assignments = Assignment.objects.filter(class_obj__course=course)
 
-        # Отримуємо всі роботи студента для цього курсу
-        course_submissions = StudentSubmission.objects.filter(
-            student=student,
-            assignment__in=assignments
-        )
+            # Отримуємо всі роботи студента для цього курсу
+            course_submissions = StudentSubmission.objects.filter(
+                student=student,
+                assignment__in=assignments
+            )
 
-        # Розраховуємо середню оцінку
-        graded_submissions = course_submissions.exclude(grade__isnull=True)
-        if graded_submissions.exists():
-            average_grade = graded_submissions.aggregate(Avg('grade'))['grade__avg']
-            max_points_sum = sum(sub.assignment.max_points for sub in graded_submissions)
-            achieved_points = sum(sub.grade for sub in graded_submissions)
+            # Розраховуємо середню оцінку
+            graded_submissions = course_submissions.exclude(grade__isnull=True)
+            if graded_submissions.exists():
+                max_points_sum = sum(sub.assignment.max_points for sub in graded_submissions)
+                achieved_points = sum(sub.grade for sub in graded_submissions)
 
-            if max_points_sum > 0:
-                percentage = (achieved_points / max_points_sum) * 100
-                final_grade = calculate_final_grade(percentage)
+                if max_points_sum > 0:
+                    percentage = (achieved_points / max_points_sum) * 100
+                    final_grade = calculate_final_grade(percentage)
+                else:
+                    final_grade = "Н/Д"
+                    percentage = 0
             else:
                 final_grade = "Н/Д"
                 percentage = 0
-        else:
-            final_grade = "Н/Д"
-            percentage = 0
 
         # Визначаємо статус
-        if percentage >= 60:
+        if final_grade in ['A', 'B', 'C', 'D']:
             status = "Зараховано"
             status_class = "success"
-        elif percentage > 0:
+        elif final_grade == 'F':
             status = "Не зараховано"
             status_class = "danger"
         else:
@@ -708,10 +738,22 @@ def calculate_course_grades(student):
             'percentage': percentage,
             'status': status,
             'status_class': status_class,
-            'grade_class': get_grade_class(percentage)
+            'grade_class': get_grade_class(percentage) if percentage else 'secondary'
         })
 
     return course_grades
+
+
+def convert_grade_to_percentage(grade):
+    """Конвертує буквенну оцінку у відсоток для відображення"""
+    grade_percentage_map = {
+        'A': 95,
+        'B': 85,
+        'C': 75,
+        'D': 65,
+        'F': 50
+    }
+    return grade_percentage_map.get(grade, 0)
 
 
 def calculate_final_grade(percentage):
