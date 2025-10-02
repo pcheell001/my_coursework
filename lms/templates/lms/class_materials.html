@@ -1,0 +1,114 @@
+{% extends 'lms/base.html' %}
+
+{% block title %}Матеріали курсу - {{ class_obj.course.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <!-- Основний блок з матеріалами -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="card-title mb-0">
+                            <i class="bi bi-file-earmark-text"></i> Матеріали курсу
+                        </h2>
+                        <span class="badge bg-primary fs-6">{{ class_obj.course.code }}</span>
+                    </div>
+                    <p class="mb-0 mt-2">{{ class_obj.course.name }}</p>
+                </div>
+
+                <div class="card-body">
+                    <!-- Кнопка повернення -->
+                    <div class="mb-4">
+                        <a href="{% url 'class_detail' class_obj.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Назад до курсу
+                        </a>
+                        {% if user.is_staff or user.professor %}
+                        <a href="{% url 'upload_course_material' class_obj.id %}" class="btn btn-primary">
+                            <i class="bi bi-upload"></i> Додати матеріал
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    <!-- Список матеріалів -->
+                    {% if materials %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                            <tr>
+                                <th>Назва матеріалу</th>
+                                <th>Опис</th>
+                                <th>Дата додавання</th>
+                                <th>Дії</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for material in materials %}
+                            <tr>
+                                <td>
+                                    <strong>{{ material.title }}</strong>
+                                </td>
+                                <td>
+                                    {% if material.description %}
+                                    {{ material.description }}
+                                    {% else %}
+                                    <span class="text-muted">Опис відсутній</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ material.uploaded_at|date:"d.m.Y H:i" }}
+                                </td>
+                                <td>
+                                    <a href="{{ material.file.url }}" class="btn btn-sm btn-outline-primary" download>
+                                        <i class="bi bi-download"></i> Завантажити
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info text-center">
+                        <i class="bi bi-info-circle display-4 d-block mb-3"></i>
+                        <h4>Матеріали відсутні</h4>
+                        <p class="mb-0">Наразі немає матеріалів для цього курсу.</p>
+                        {% if user.is_staff or user.professor %}
+                        <p class="mt-2">
+                            <a href="{% url 'upload_course_material' class_obj.id %}" class="btn btn-primary">
+                                Додати перший матеріал
+                            </a>
+                        </p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #2c3e50, #3498db);
+        color: white;
+        border-radius: 8px 8px 0 0 !important;
+        padding: 20px;
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+
+    .btn {
+        border-radius: 6px;
+    }
+</style>
+{% endblock %}

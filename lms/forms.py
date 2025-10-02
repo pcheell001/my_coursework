@@ -30,9 +30,18 @@ class CourseMaterialForm(forms.ModelForm):
         model = CourseMaterial
         fields = ['title', 'description', 'file']
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'file': forms.FileInput(attrs={'class': 'form-control'}),
+            'title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Введіть назву матеріалу'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'placeholder': 'Введіть опис матеріалу (необов\'язково)',
+                'rows': 4
+            }),
+            'file': forms.FileInput(attrs={
+                'class': 'form-control'
+            }),
         }
         labels = {
             'title': 'Назва матеріалу',

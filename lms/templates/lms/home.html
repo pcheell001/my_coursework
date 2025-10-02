@@ -21,16 +21,25 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-body text-center py-5">
-                    <h2 class="card-title">Вітаємо, {{ user.get_full_name|default:user.username }}!</h2>
+                    {% if user.student %}
+                    <!-- Приветствие для студента -->
+                    <h2 class="card-title">Вітаємо, {{ user.student.full_name|default:user.username }}!</h2>
                     <p class="card-text lead">Раді бачити вас у системі</p>
-                    {% if user.is_staff %}
+                    <a href="{% url 'student_dashboard' %}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-speedometer2"></i> Перейти до панелі студента
+                    </a>
+                    {% elif user.professor %}
+                    <!-- Приветствие для преподавателя -->
+                    <h2 class="card-title">Вітаємо, {{ user.professor.full_name|default:user.username }}!</h2>
+                    <p class="card-text lead">Раді бачити вас у системі</p>
                     <a href="{% url 'professor_dashboard' %}" class="btn btn-primary btn-lg">
                         <i class="bi bi-speedometer2"></i> Перейти до панелі викладача
                     </a>
                     {% else %}
-                    <a href="{% url 'student_dashboard' %}" class="btn btn-primary btn-lg">
-                        <i class="bi bi-speedometer2"></i> Перейти до панелі студента
-                    </a>
+                    <!-- Общее приветствие для других пользователей -->
+                    <h2 class="card-title">Вітаємо, {{ user.get_full_name|default:user.username }}!</h2>
+                    <p class="card-text lead">Раді бачити вас у системі</p>
+                    <p class="text-muted">Ваш обліковий запис не має спеціальних прав доступу.</p>
                     {% endif %}
                 </div>
             </div>
@@ -103,7 +112,9 @@
             <div class="card stat-card">
                 <i class="bi bi-clock-history"></i>
                 <h3>{{ pending_count|default:"0" }}</h3>
-                <p>Очікують перевірки</p>
+                <p>
+                    {% if user.student %}Очікують здачі{% else %}Очікують перевірки{% endif %}
+                </p>
             </div>
         </div>
 
@@ -111,7 +122,9 @@
             <div class="card stat-card">
                 <i class="bi bi-check-circle"></i>
                 <h3>{{ completed_count|default:"0" }}</h3>
-                <p>Завершених робіт</p>
+                <p>
+                    {% if user.student %}Зданих робіт{% else %}Перевірених робіт{% endif %}
+                </p>
             </div>
         </div>
     </div>

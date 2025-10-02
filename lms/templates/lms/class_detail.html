@@ -1,167 +1,177 @@
 {% extends 'lms/base.html' %}
 
+{% block title %}{{ class_obj.course.name }} - Деталі курсу{% endblock %}
+
 {% block content %}
-<div class="row">
-    <div class="col-md-8">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h4>{{ class.course.name }} ({{ class.course.code }})</h4>
-            </div>
-            <div class="card-body">
-                <p><strong>Викладач:</strong> {{ class.professor.user.get_full_name }}</p>
-                <p><strong>Семестр:</strong> {{ class.semester }}</p>
-                <p><strong>Розклад:</strong> {{ class.schedule }}</p>
-                <p><strong>Аудиторія:</strong> {{ class.classroom }}</p>
-                <p><strong>Кредити:</strong> {{ class.course.credits }}</p>
-                <p><strong>Опис:</strong> {{ class.course.description }}</p>
-
-                <!-- Додаємо кнопку запису для студентів -->
-                {% if is_student and not is_enrolled %}
-                <div class="mt-3">
-                    <form action="{% url 'enroll_course' class.id %}" method="post">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-success">Записатися на курс</button>
-                    </form>
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <!-- Основний блок з інформацією про курс -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="card-title mb-0">
+                            <i class="bi bi-journals"></i> {{ class_obj.course.name }}
+                        </h2>
+                        <span class="badge bg-primary fs-6">{{ class_obj.course.code }}</span>
+                    </div>
                 </div>
-                {% elif is_enrolled %}
-                <div class="mt-3">
-                    <div class="alert alert-info">Ви вже записані на цей курс.</div>
-                </div>
-                {% endif %}
-            </div>
-        </div>
 
-        <!-- Блок для матеріалів курсу -->
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>Матеріали курсу</h5>
-                {% if is_professor %}
-                <a href="{% url 'upload_material' class.id %}" class="btn btn-sm btn-primary">Додати матеріал</a>
-                {% endif %}
-            </div>
-            <div class="card-body">
-                {% if materials %}
-                <div class="list-group">
-                    {% for material in materials %}
-                    <div class="list-group-item">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">{{ material.title }}</h6>
-                            <small>{{ material.uploaded_at|date:"d.m.Y" }}</small>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Основна інформація -->
+                        <div class="col-md-6">
+                            <h5 class="border-bottom pb-2 mb-3">Основна інформація</h5>
+
+                            <div class="mb-3">
+                                <strong><i class="bi bi-person"></i> Викладач:</strong>
+                                <p class="mb-1">{{ class_obj.professor.user.get_full_name }}</p>
+                            </div>
+
+                            <div class="mb-3">
+                                <strong><i class="bi bi-calendar"></i> Семестр:</strong>
+                                <p class="mb-1">{{ class_obj.semester }}</p>
+                            </div>
+
+                            <div class="mb-3">
+                                <strong><i class="bi bi-clock"></i> Розклад:</strong>
+                                <p class="mb-1">{{ class_obj.schedule }}</p>
+                            </div>
+
+                            <div class="mb-3">
+                                <strong><i class="bi bi-geo-alt"></i> Аудиторія:</strong>
+                                <p class="mb-1">{{ class_obj.classroom }}</p>
+                            </div>
+
+                            <div class="mb-3">
+                                <strong><i class="bi bi-award"></i> Кредити:</strong>
+                                <p class="mb-1">{{ class_obj.course.credits }}</p>
+                            </div>
                         </div>
-                        {% if material.description %}
-                        <p class="mb-1">{{ material.description }}</p>
-                        {% endif %}
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted">
-                                {% if material.file.name|slice:"-4:" == ".pdf" %}PDF документ
-                                {% elif material.file.name|slice:"-4:" == ".zip" %}ZIP архів
-                                {% elif material.file.name|slice:"-5:" == ".docx" %}Word документ
-                                {% elif material.file.name|slice:"-4:" == ".ppt" or material.file.name|slice:"-5:" == ".pptx" %}Презентація
-                                {% elif material.file.name|slice:"-4:" == ".xls" or material.file.name|slice:"-5:" == ".xlsx" %}Таблиця
-                                {% else %}{{ material.file.name|slice:"-4:"|upper }} файл
-                                {% endif %}
-                                • {{ material.file.size|filesizeformat }}
-                            </small>
-                            <div>
-                                {% if material.file %}
-                                <a href="{{ material.file.url }}" class="btn btn-sm btn-outline-primary" target="_blank" download>Завантажити</a>
-                                {% if is_professor %}
-                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ material.id }}">
-                                    Видалити
-                                </button>
-                                {% endif %}
-                                {% else %}
-                                <span class="text-danger">Файл відсутній</span>
+
+                        <!-- Опис і дії -->
+                        <div class="col-md-6">
+                            <h5 class="border-bottom pb-2 mb-3">Опис курсу</h5>
+
+                            <div class="mb-4">
+                                <p class="mb-2">{{ class_obj.course.description }}</p>
+                            </div>
+
+                            <h5 class="border-bottom pb-2 mb-3">Доступні дії</h5>
+
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'class_materials' class_obj.id %}" class="btn btn-primary">
+                                    <i class="bi bi-file-earmark-text"></i> Матеріали курсу
+                                    <span class="badge bg-light text-dark ms-2">{{ materials.count }}</span>
+                                </a>
+
+                                {% if user.is_staff or user.professor %}
+                                <a href="{% url 'upload_course_material' class_obj.id %}" class="btn btn-outline-primary">
+                                    <i class="bi bi-upload"></i> Додати матеріал
+                                </a>
+
+                                <a href="{% url 'create_assignment' class_obj.id %}" class="btn btn-outline-success">
+                                    <i class="bi bi-plus-circle"></i> Створити завдання
+                                </a>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
-
-                    <!-- Модальне вікно підтвердження видалення -->
-                    {% if is_professor %}
-                    <div class="modal fade" id="deleteModal{{ material.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ material.id }}" aria-hidden="true">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="deleteModalLabel{{ material.id }}">Підтвердження видалення</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p>Ви впевнені, що хочете видалити матеріал "{{ material.title }}"?</p>
-                                    <p class="text-muted">Цю дію не можна буде скасувати.</p>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
-                                    <form action="{% url 'delete_material' material.id %}" method="post" class="d-inline">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-danger">Видалити</button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-muted">Матеріали відсутні.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        {% if is_professor %}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5>Керування курсом</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="{% url 'professor_grades' class.id %}" class="btn btn-warning">Введення оцінок</a>
-                    <a href="{% url 'class_assignments' class.id %}" class="btn btn-info">Завдання та роботи</a>
-                    <button class="btn btn-info">Перегляд відвідуваності</button>
                 </div>
             </div>
         </div>
-        {% endif %}
-
-        <div class="card">
-            <div class="card-header">
-                <h5>Студенти курсу</h5>
-            </div>
-            <div class="card-body">
-                {% if enrollments %}
-                <div class="list-group">
-                    {% for enrollment in enrollments %}
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-0">{{ enrollment.student.user.get_full_name }}</h6>
-                            <small class="text-muted">{{ enrollment.student.student_id }}</small>
-                        </div>
-                        {% if enrollment.grade %}
-                        <span class="badge bg-primary rounded-pill">{{ enrollment.grade }}</span>
-                        {% else %}
-                        <span class="badge bg-secondary rounded-pill">Не оцінено</span>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-muted">На цей курс ще не записався жоден студент.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        {% if not is_professor and not is_enrolled and not is_student %}
-        <div class="card mt-4">
-            <div class="card-body text-center">
-                <h5>Запис на курс</h5>
-                <p>Тільки студенти можуть записуватися на курси.</p>
-                <a href="{% url 'home' %}" class="btn btn-outline-secondary">На головну</a>
-            </div>
-        </div>
-        {% endif %}
     </div>
 </div>
+
+<style>
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        margin-bottom: 20px;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #2c3e50, #3498db);
+        color: white;
+        border-radius: 15px 15px 0 0 !important;
+        padding: 15px 20px;
+        font-weight: 600;
+    }
+
+    .card-title {
+        font-weight: 600;
+    }
+
+    .border-bottom {
+        border-color: #e9ecef !important;
+    }
+
+    .btn {
+        border-radius: 8px;
+        padding: 10px 25px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #3498db, #2980b9);
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #2980b9, #3498db);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #27ae60, #229954);
+        border: none;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #229954, #27ae60);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+    }
+
+    .btn-outline-primary {
+        border: 2px solid #3498db;
+        color: #3498db;
+        background: transparent;
+    }
+
+    .btn-outline-primary:hover {
+        background: #3498db;
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    .btn-outline-success {
+        border: 2px solid #27ae60;
+        color: #27ae60;
+        background: transparent;
+    }
+
+    .btn-outline-success:hover {
+        background: #27ae60;
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    .badge {
+        font-size: 0.8rem;
+    }
+</style>
 {% endblock %}

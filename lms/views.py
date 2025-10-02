@@ -4,7 +4,9 @@ from django.contrib.auth.models import User
 from django.contrib.auth import logout
 from django.http import HttpResponseForbidden
 from django.utils import timezone
+from django.db import models
 from django.db.models import Avg, Count, Q
+from django.contrib import messages
 from .models import (
     Student, Professor, Class, Enrollment, CourseMaterial,
     Assignment, StudentSubmission, Course, Faculty, Department
@@ -23,12 +25,12 @@ def home(request):
         try:
             if hasattr(request.user, 'student'):
                 student = request.user.student
-                enrolled_classes = Enrollment.objects.filter(student=student).select_related('class_enrolled')
-                context['enrolled_courses_count'] = enrolled_classes.count()
+                enrollments = Enrollment.objects.filter(student=student).select_related('class_enrolled')
+                context['enrolled_courses_count'] = enrollments.count()
 
                 # Получаем активные задания
                 assignments_count = Assignment.objects.filter(
-                    class_obj__in=[enrollment.class_enrolled for enrollment in enrolled_classes]
+                    class_obj__in=[enrollment.class_enrolled for enrollment in enrollments]
                 ).count()
                 context['assignments_count'] = assignments_count
 
@@ -42,6 +44,12 @@ def home(request):
                     class_obj__in=professor_classes
                 ).count()
                 context['assignments_count'] = assignments_count
+
+                # Получаем количество отправленных работ
+                submissions_count = StudentSubmission.objects.filter(
+                    assignment__class_obj__in=professor_classes
+                ).count()
+                context['submissions_count'] = submissions_count
 
         except (Student.DoesNotExist, Professor.DoesNotExist):
             pass
@@ -127,6 +135,142 @@ def professor_dashboard(request):
     }
 
     return render(request, 'lms/professor_dashboard.html', context)
+
+
+@login_required
+def professor_grades(request):
+    """Управління оцінками для викладача"""
+    try:
+        professor = request.user.professor
+    except Professor.DoesNotExist:
+        return HttpResponseForbidden("Доступ заборонено")
+
+    # Отримуємо курси викладача
+    courses = Class.objects.filter(professor=professor).select_related('course')
+
+    course_data = []
+    for course_class in courses:
+        course = course_class.course
+
+        # Отримуємо студентів курсу
+        enrollments = Enrollment.objects.filter(class_enrolled=course_class).select_related('student__user')
+
+        students_data = []
+        for enrollment in enrollments:
+            student = enrollment.student
+
+            # Отримуємо завдання та роботи студента
+            assignments = Assignment.objects.filter(class_obj=course_class)
+            submissions = StudentSubmission.objects.filter(
+                student=student,
+                assignment__in=assignments
+            )
+
+            # Статистика
+            submitted_count = submissions.count()
+            total_assignments = assignments.count()
+            completion_percentage = (submitted_count / total_assignments * 100) if total_assignments > 0 else 0
+
+            graded_submissions = submissions.exclude(grade__isnull=True)
+            if graded_submissions.exists():
+                average_grade = graded_submissions.aggregate(Avg('grade'))['grade__avg']
+                max_points_sum = sum(sub.assignment.max_points for sub in graded_submissions)
+                achieved_points = sum(sub.grade for sub in graded_submissions)
+
+                if max_points_sum > 0:
+                    percentage = (achieved_points / max_points_sum) * 100
+                    final_grade = calculate_final_grade(percentage)
+                    final_grade_class = get_grade_class(percentage)
+                else:
+                    final_grade = "Н/Д"
+                    final_grade_class = "secondary"
+            else:
+                average_grade = None
+                final_grade = "Н/Д"
+                final_grade_class = "secondary"
+
+            students_data.append({
+                'student': student,
+                'submitted_count': submitted_count,
+                'total_assignments': total_assignments,
+                'completion_percentage': completion_percentage,
+                'average_grade': average_grade,
+                'final_grade': final_grade,
+                'final_grade_class': final_grade_class
+            })
+
+        course_data.append({
+            'id': course.id,
+            'name': course.name,
+            'students': students_data
+        })
+
+    context = {
+        'courses': course_data
+    }
+
+    return render(request, 'lms/professor_grades.html', context)
+
+
+@login_required
+def student_course_grades(request, course_id, student_id):
+    """Детальные оценки студента по конкретному курсу"""
+    try:
+        professor = request.user.professor
+    except Professor.DoesNotExist:
+        return HttpResponseForbidden("Доступ запрещен")
+
+    course = get_object_or_404(Course, id=course_id)
+    student = get_object_or_404(Student, id=student_id)
+
+    # Проверяем, что преподаватель ведет этот курс
+    course_class = get_object_or_404(Class, course=course, professor=professor)
+
+    # Получаем все задания курса и работы студента
+    assignments = Assignment.objects.filter(class_obj=course_class)
+    submissions = StudentSubmission.objects.filter(
+        student=student,
+        assignment__in=assignments
+    ).select_related('assignment')
+
+    context = {
+        'course': course,
+        'student': student,
+        'assignments': assignments,
+        'submissions': submissions,
+    }
+
+    return render(request, 'lms/student_course_grades.html', context)
+
+
+@login_required
+def set_final_grade(request):
+    """Установка финальной оценки за курс"""
+    if request.method == 'POST':
+        try:
+            professor = request.user.professor
+            student_id = request.POST.get('student_id')
+            course_id = request.POST.get('course_id')
+            final_grade = request.POST.get('final_grade')
+            comments = request.POST.get('comments', '')
+
+            student = get_object_or_404(Student, id=student_id)
+            course = get_object_or_404(Course, id=course_id)
+
+            # Проверяем, что преподаватель ведет этот курс
+            course_class = get_object_or_404(Class, course=course, professor=professor)
+
+            # Здесь можно сохранить финальную оценку в модель Enrollment
+            enrollment = get_object_or_404(Enrollment, student=student, class_enrolled=course_class)
+            enrollment.grade = final_grade
+            enrollment.save()
+
+            messages.success(request, f'Фінальну оцінку для {student.user.get_full_name()} успішно встановлено.')
+
+        except Exception as e:
+            messages.error(request, f'Помилка при встановленні оцінки: {str(e)}')
+
+    return redirect('professor_grades')
 
 
 @login_required
@@ -451,21 +595,24 @@ def student_assignments(request):
 
 @login_required
 def student_grades(request):
-    """Оценки студента"""
+    """Оцінки студента"""
     try:
         student = request.user.student
     except Student.DoesNotExist:
-        return HttpResponseForbidden("Доступ запрещен")
+        return HttpResponseForbidden("Доступ заборонено")
 
-    submissions = StudentSubmission.objects.filter(student=student).select_related('assignment__class_obj__course')
+    # Отримуємо всі відправлені роботи студента
+    submissions = StudentSubmission.objects.filter(student=student).select_related(
+        'assignment__class_obj__course'
+    ).order_by('-submission_date')
 
-    # Рассчитываем статистику
+    # Розраховуємо статистику
     total_submissions = submissions.count()
     graded_submissions = submissions.exclude(grade__isnull=True)
 
     if graded_submissions.exists():
         average_grade = graded_submissions.aggregate(Avg('grade'))['grade__avg']
-        # Рассчитываем процент успешных работ (оценка >= 60%)
+        # Розраховуємо процент успішних робіт (оцінка >= 60%)
         successful_submissions = graded_submissions.filter(
             grade__gte=models.F('assignment__max_points') * 0.6
         ).count()
@@ -476,7 +623,7 @@ def student_grades(request):
 
     pending_grades = submissions.filter(grade__isnull=True).count()
 
-    # Рассчитываем процент для каждого submission
+    # Розраховуємо процент для кожного submission
     graded_submissions_list = []
     for submission in submissions:
         if submission.grade and submission.assignment.max_points:
@@ -490,8 +637,12 @@ def student_grades(request):
             'grade_class': get_grade_class(percentage) if percentage else 'secondary'
         })
 
+    # Отримуємо оцінки за курсами
+    course_grades = calculate_course_grades(student)
+
     context = {
         'submissions': graded_submissions_list,
+        'course_grades': course_grades,
         'total_submissions': total_submissions,
         'average_grade': round(average_grade, 1) if average_grade else 0,
         'success_rate': round(success_rate, 1) if success_rate else 0,
@@ -500,6 +651,81 @@ def student_grades(request):
     }
 
     return render(request, 'lms/student_grades.html', context)
+
+
+def calculate_course_grades(student):
+    """Розраховує оцінки за курсами для студента"""
+    course_grades = []
+
+    # Отримуємо всі курси студента
+    enrollments = Enrollment.objects.filter(student=student).select_related(
+        'class_enrolled__course'
+    )
+
+    for enrollment in enrollments:
+        course = enrollment.class_enrolled.course
+
+        # Отримуємо всі завдання для цього курсу
+        assignments = Assignment.objects.filter(class_obj__course=course)
+
+        # Отримуємо всі роботи студента для цього курсу
+        course_submissions = StudentSubmission.objects.filter(
+            student=student,
+            assignment__in=assignments
+        )
+
+        # Розраховуємо середню оцінку
+        graded_submissions = course_submissions.exclude(grade__isnull=True)
+        if graded_submissions.exists():
+            average_grade = graded_submissions.aggregate(Avg('grade'))['grade__avg']
+            max_points_sum = sum(sub.assignment.max_points for sub in graded_submissions)
+            achieved_points = sum(sub.grade for sub in graded_submissions)
+
+            if max_points_sum > 0:
+                percentage = (achieved_points / max_points_sum) * 100
+                final_grade = calculate_final_grade(percentage)
+            else:
+                final_grade = "Н/Д"
+                percentage = 0
+        else:
+            final_grade = "Н/Д"
+            percentage = 0
+
+        # Визначаємо статус
+        if percentage >= 60:
+            status = "Зараховано"
+            status_class = "success"
+        elif percentage > 0:
+            status = "Не зараховано"
+            status_class = "danger"
+        else:
+            status = "В процесі"
+            status_class = "warning"
+
+        course_grades.append({
+            'course': course,
+            'final_grade': final_grade,
+            'percentage': percentage,
+            'status': status,
+            'status_class': status_class,
+            'grade_class': get_grade_class(percentage)
+        })
+
+    return course_grades
+
+
+def calculate_final_grade(percentage):
+    """Конвертує процент у буквенну оцінку"""
+    if percentage >= 90:
+        return "A"
+    elif percentage >= 80:
+        return "B"
+    elif percentage >= 70:
+        return "C"
+    elif percentage >= 60:
+        return "D"
+    else:
+        return "F"
 
 
 def get_grade_class(percentage):

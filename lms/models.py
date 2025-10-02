@@ -56,8 +56,13 @@ class Student(models.Model):
         verbose_name = _("студент")
         verbose_name_plural = _("студенти")
 
+    @property
+    def full_name(self):
+        """Полное имя студента"""
+        return self.user.get_full_name() or self.user.username
+
     def __str__(self):
-        return f"{self.student_id} - {self.user.get_full_name()}"
+        return f"{self.student_id} - {self.full_name}"
 
 
 class Professor(models.Model):
@@ -69,8 +74,13 @@ class Professor(models.Model):
         verbose_name = _("викладач")
         verbose_name_plural = _("викладачі")
 
+    @property
+    def full_name(self):
+        """Полное имя преподавателя"""
+        return self.user.get_full_name() or self.user.username
+
     def __str__(self):
-        return self.user.get_full_name()
+        return self.full_name
 
 
 class Class(models.Model):

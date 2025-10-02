@@ -32,4 +32,10 @@ urlpatterns = [
     path('student/courses/', views.student_courses, name='student_courses'),
     path('student/assignments/', views.student_assignments, name='student_assignments'),
     path('student/grades/', views.student_grades, name='student_grades'),
+
+    # Маршруты для управления оценками преподавателем
+    path('professor/grades/', views.professor_grades, name='professor_grades'),
+    path('professor/grades/course/<int:course_id>/student/<int:student_id>/',
+         views.student_course_grades, name='student_course_grades'),
+    path('professor/grades/set-final-grade/', views.set_final_grade, name='set_final_grade'),
 ]

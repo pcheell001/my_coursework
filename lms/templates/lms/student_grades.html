@@ -1,6 +1,6 @@
 {% extends 'lms/base.html' %}
 
-{% block title %}Моя успішність{% endblock %}
+{% block title %}Мої оцінки{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -37,110 +37,174 @@
         <!-- Main Content -->
         <div class="col-md-9">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1><i class="bi bi-graph-up"></i> Моя успішність</h1>
+                <h1><i class="bi bi-graph-up"></i> Мої оцінки</h1>
             </div>
 
-            {% if submissions %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
+            <!-- Статистика -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h4 class="card-title">{{ total_submissions }}</h4>
+                            <p class="card-text">Всього робіт</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h4 class="card-title">{{ graded_count }}</h4>
+                            <p class="card-text">Оцінено</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h4 class="card-title">{{ pending_grades }}</h4>
+                            <p class="card-text">Очікують оцінки</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h4 class="card-title">{{ average_grade }}</h4>
+                            <p class="card-text">Середній бал</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Оцінки за курсами -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-journals"></i> Оцінки за курсами</h5>
+                </div>
+                <div class="card-body">
+                    {% if course_grades %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                            <tr>
+                                <th>Курс</th>
+                                <th>Викладач</th>
+                                <th>Фінальна оцінка</th>
+                                <th>Статус</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for course_grade in course_grades %}
+                            <tr>
+                                <td>{{ course_grade.course.name }}</td>
+                                <td>{{ course_grade.course.professor_name }}</td>
+                                <td>
+                                            <span class="badge bg-{{ course_grade.grade_class }} fs-6">
+                                                {{ course_grade.final_grade }}
+                                            </span>
+                                </td>
+                                <td>
+                                            <span class="badge bg-{{ course_grade.status_class }}">
+                                                {{ course_grade.status }}
+                                            </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Поки що немає оцінок за курсами.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Детальні оцінки за завданнями -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> Детальні оцінки за завданнями</h5>
+                </div>
+                <div class="card-body">
+                    {% if submissions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
                             <tr>
                                 <th>Курс</th>
                                 <th>Завдання</th>
-                                <th>Тип</th>
-                                <th>Дата здачі</th>
+                                <th>Макс. бал</th>
                                 <th>Оцінка</th>
                                 <th>Відсоток</th>
-                                <th>Відгук викладача</th>
+                                <th>Статус</th>
+                                <th>Дата здачі</th>
+                                <th>Відгук</th>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {% for submission in submissions %}
+                            </thead>
+                            <tbody>
+                            {% for item in submissions %}
                             <tr>
-                                <td>{{ submission.assignment.class_obj.course.name }}</td>
-                                <td>{{ submission.assignment.title }}</td>
+                                <td>{{ item.submission.assignment.class_obj.course.name }}</td>
+                                <td>{{ item.submission.assignment.title }}</td>
+                                <td>{{ item.submission.assignment.max_points }}</td>
                                 <td>
-                                    <span class="badge {% if submission.assignment.assignment_type == 'LAB' %}bg-primary{% elif submission.assignment.assignment_type == 'HW' %}bg-warning{% elif submission.assignment.assignment_type == 'PROJECT' %}bg-success{% else %}bg-info{% endif %}">
-                                        {{ submission.assignment.get_assignment_type_display }}
-                                    </span>
-                                </td>
-                                <td>{{ submission.submission_date|date:"d.m.Y H:i" }}</td>
-                                <td>
-                                    {% if submission.grade %}
-                                        <span class="badge {% if submission.get_grade_percentage >= 90 %}bg-success{% elif submission.get_grade_percentage >= 70 %}bg-primary{% elif submission.get_grade_percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}">
-                                            {{ submission.grade }}/{{ submission.assignment.max_points }}
-                                        </span>
+                                    {% if item.submission.grade %}
+                                    <strong>{{ item.submission.grade }}</strong>
                                     {% else %}
-                                        <span class="badge bg-secondary">Очікує оцінки</span>
+                                    <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if submission.grade %}
-                                        <span class="badge bg-info">{{ submission.get_grade_percentage|floatformat:1 }}%</span>
+                                    {% if item.percentage %}
+                                    <span class="badge bg-{{ item.grade_class }}">
+                                                    {{ item.percentage|floatformat:1 }}%
+                                                </span>
                                     {% else %}
-                                        -
+                                    <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if submission.teacher_feedback %}
-                                        <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="{{ submission.teacher_feedback }}">
-                                            <i class="bi bi-chat-text"></i> Переглянути
-                                        </button>
+                                    {% if item.submission.grade %}
+                                    <span class="badge bg-success">Оцінено</span>
                                     {% else %}
-                                        <span class="text-muted">Немає відгуку</span>
+                                    <span class="badge bg-warning">Очікує</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.submission.submission_date|date:"d.m.Y H:i" }}</td>
+                                <td>
+                                    {% if item.submission.teacher_feedback %}
+                                    <button type="button" class="btn btn-sm btn-outline-info"
+                                            data-bs-toggle="popover"
+                                            title="Відгук викладача"
+                                            data-bs-content="{{ item.submission.teacher_feedback }}">
+                                        <i class="bi bi-chat-text"></i>
+                                    </button>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> У вас поки що немає зданих робіт.
+                    </div>
+                    {% endif %}
                 </div>
-
-                <!-- Статистика -->
-                <div class="row mt-4">
-                    <div class="col-md-3">
-                        <div class="stat-card">
-                            <i class="bi bi-check-circle"></i>
-                            <h3>{{ total_submissions }}</h3>
-                            <p>Всього здано</p>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card">
-                            <i class="bi bi-star"></i>
-                            <h3>{{ average_grade|default:"0" }}</h3>
-                            <p>Середній бал</p>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card">
-                            <i class="bi bi-percent"></i>
-                            <h3>{{ success_rate|default:"0" }}%</h3>
-                            <p>Успішність</p>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card">
-                            <i class="bi bi-clock-history"></i>
-                            <h3>{{ pending_grades }}</h3>
-                            <p>Очікують оцінки</p>
-                        </div>
-                    </div>
-                </div>
-            {% else %}
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> У вас ще немає оцінок.
-                </div>
-            {% endif %}
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    // Активация всплывающих подсказок
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
+    // Активація popover для відгуків викладача
+    document.addEventListener('DOMContentLoaded', function() {
+        var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+        var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl)
+        })
     });
 </script>
 {% endblock %}

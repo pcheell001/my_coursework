@@ -40,64 +40,100 @@
                 <h1><i class="bi bi-clipboard-check"></i> Мої завдання</h1>
             </div>
 
-            {% if assignments %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Курс</th>
-                                <th>Завдання</th>
-                                <th>Термін здачі</th>
-                                <th>Статус</th>
-                                <th>Оцінка</th>
-                                <th>Дії</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for assignment in assignments %}
-                            <tr>
-                                <td>{{ assignment.class_obj.course.name }}</td>
-                                <td>{{ assignment.title }}</td>
-                                <td>{{ assignment.due_date|date:"d.m.Y H:i" }}</td>
-                                <td>
-                                    {% if assignment in submission_dict %}
-                                        <span class="badge bg-success">Здано</span>
-                                    {% else %}
-                                        <span class="badge bg-warning">Очікує</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if assignment in submission_dict %}
-                                        {% with submission=submission_dict|get_item:assignment.id %}
-                                            {% if submission.grade %}
-                                                <span class="badge bg-primary">{{ submission.grade }}/{{ assignment.max_points }}</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">Очікує оцінки</span>
-                                            {% endif %}
-                                        {% endwith %}
-                                    {% else %}
-                                        <span class="badge bg-light text-dark">Не здано</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <a href="{% url 'assignment_detail' assignment.id %}" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye"></i> Деталі
-                                    </a>
-                                    {% if assignment not in submission_dict %}
-                                        <a href="{% url 'submit_assignment' assignment.id %}" class="btn btn-sm btn-success">
-                                            <i class="bi bi-upload"></i> Здати
-                                        </a>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <!-- Статистика -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h4 class="card-title">{{ total_assignments }}</h4>
+                            <p class="card-text">Всього завдань</p>
+                        </div>
+                    </div>
                 </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h4 class="card-title">{{ submitted_count }}</h4>
+                            <p class="card-text">Здано</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h4 class="card-title">{{ pending_count }}</h4>
+                            <p class="card-text">Очікують</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h4 class="card-title">{{ completion_rate|floatformat:0 }}%</h4>
+                            <p class="card-text">Виконано</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if assignment_data %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th>Курс</th>
+                        <th>Завдання</th>
+                        <th>Термін здачі</th>
+                        <th>Статус</th>
+                        <th>Оцінка</th>
+                        <th>Дії</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for data in assignment_data %}
+                    {% with assignment=data.assignment submission=data.submission %}
+                    <tr>
+                        <td>{{ assignment.class_obj.course.name }}</td>
+                        <td>{{ assignment.title }}</td>
+                        <td>{{ assignment.due_date|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            {% if data.is_submitted %}
+                            <span class="badge bg-success">Здано</span>
+                            {% else %}
+                            <span class="badge bg-warning">Очікує</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if data.is_submitted %}
+                            {% if data.is_graded %}
+                            <span class="badge bg-primary">{{ submission.grade }}/{{ assignment.max_points }}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Очікує оцінки</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="badge bg-light text-dark">Не здано</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'assignment_detail' assignment.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> Деталі
+                            </a>
+                            {% if not data.is_submitted %}
+                            <a href="{% url 'submit_assignment' assignment.id %}" class="btn btn-sm btn-success">
+                                <i class="bi bi-upload"></i> Здати
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> Наразі у вас немає активних завдань.
-                </div>
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Наразі у вас немає активних завдань.
+            </div>
             {% endif %}
         </div>
     </div>
